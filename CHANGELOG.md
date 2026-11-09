@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.4 — 2026-11-10
+
+- docs(architecture): add C4 views, flow diagrams, pipeline overview and ADRs 0001-0009
+
 ## 0.16.3 — 2026-11-10
 
 - fix(inventory): list only bundled runtime components and the PyInstaller bootloader

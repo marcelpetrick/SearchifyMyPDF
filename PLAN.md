@@ -103,3 +103,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.16.1 | 2026-11-10 | fix(publisher): remove staging leftovers of interrupted runs and add fault tests |
 | 0.16.2 | 2026-11-10 | fix(ui): improve progress bar contrast and escape ampersand in group titles |
 | 0.16.3 | 2026-11-10 | fix(inventory): list only bundled runtime components and the PyInstaller bootloader |
+| 0.16.4 | 2026-11-10 | docs(architecture): add C4 views, flow diagrams, pipeline overview and ADRs 0001-0009 |
