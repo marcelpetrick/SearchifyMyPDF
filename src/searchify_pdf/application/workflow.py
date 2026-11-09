@@ -1,0 +1,399 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
+"""Batch workflow: snapshot → discover → decide → queue → run → validate → publish.
+
+The workflow is UI-agnostic. It is driven from a background thread by the GUI and
+directly by the CLI. Policy decisions (and therefore prompts) happen one at a time in
+the driving thread, while up to ``documents`` conversions run in worker threads, each
+delegating OCR to an isolated engine process.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import enum
+import shutil
+import threading
+import time
+from collections.abc import Callable, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from typing import Protocol
+
+from searchify_pdf.application.discovery import Candidate, discover
+from searchify_pdf.application.scheduler import WorkerPlan, plan_workers, system_resources
+from searchify_pdf.domain.jobs import (
+    BatchSummary,
+    JobEvent,
+    JobResult,
+    JobState,
+    Omission,
+    Outcome,
+    PageCounts,
+    Reason,
+)
+from searchify_pdf.domain.paths import lock_path_for
+from searchify_pdf.domain.settings import ExistingOutputPolicy, ExistingTextPolicy, Settings
+from searchify_pdf.engines.base import EngineRequest, OcrEngine, OcrMode
+from searchify_pdf.engines.pdf_inspect import (
+    PdfInfo,
+    PdfInspectionError,
+    add_marker,
+    has_marker,
+    inspect_pdf,
+)
+from searchify_pdf.storage.locks import FileLock
+from searchify_pdf.storage.publisher import (
+    PublishError,
+    destination_problem,
+    discard,
+    new_staging_path,
+    publish,
+    reason_for_os_error,
+    validate_output,
+)
+
+
+class Choice(enum.StrEnum):
+    YES = "yes"  # overwrite the copy / replace the existing OCR
+    NO = "no"  # skip / keep existing text
+    CANCEL = "cancel"  # stop the whole batch
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Decision:
+    choice: Choice
+    apply_to_batch: bool = False
+
+
+class DecisionProvider(Protocol):
+    """Answers "Ask me" policies. ``None`` means no interactive answer is possible."""
+
+    def existing_output(self, source: Path, destination: Path) -> Decision | None: ...
+
+    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None: ...
+
+
+class NonInteractiveDecisions:
+    """CLI without a terminal: never hang, never silently authorize replacement."""
+
+    def existing_output(self, source: Path, destination: Path) -> Decision | None:
+        return None
+
+    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
+        return None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Plan:
+    job_id: int
+    candidate: Candidate
+    info: PdfInfo
+    overwrite: bool
+    mode: OcrMode | None  # None → every page already has text: publish an unchanged copy
+    notes: tuple[Reason, ...]
+    submitted: float
+
+
+EventSink = Callable[[JobEvent], None]
+NO_PAGES = PageCounts()
+
+
+class BatchRunner:
+    def __init__(
+        self,
+        settings: Settings,
+        engine: OcrEngine,
+        *,
+        decisions: DecisionProvider | None = None,
+        on_event: EventSink | None = None,
+        cancel: threading.Event | None = None,
+        version: str = "0",
+        clock: Callable[[], float] = time.monotonic,
+        resources: Callable[[], tuple[int, int]] = system_resources,
+    ) -> None:
+        self.settings = settings  # immutable snapshot for this batch
+        self.engine = engine
+        self.decisions = decisions or NonInteractiveDecisions()
+        self.on_event = on_event or (lambda _event: None)
+        self.cancel = cancel or threading.Event()
+        self.version = version
+        self.clock = clock
+        self.resources = resources
+        self.plan: WorkerPlan | None = None
+        self._batch_output: Choice | None = None
+        self._batch_text: Choice | None = None
+
+    # -- public -------------------------------------------------------------------------
+
+    def run(self, inputs: Sequence[Path]) -> BatchSummary:
+        started = self.clock()
+        s = self.settings
+        found = discover(inputs, s.output_suffix, s.known_suffixes, has_marker)
+        results: list[JobResult] = []
+        cpu, memory = self.resources()
+        self.plan = plan_workers(s, len(found.candidates), cpu_count=cpu, available_memory=memory)
+        for job_id, candidate in enumerate(found.candidates):
+            self._emit(job_id, candidate.source, JobState.DISCOVERED)
+
+        problem = self.engine.readiness_problem(s.ocr_languages) if found.candidates else None
+        if problem is not None:
+            reason, detail = problem
+            for job_id, candidate in enumerate(found.candidates):
+                results.append(self._finish(job_id, candidate, Outcome.FAILED, reason, detail))
+            return self._summary(results, found.omissions, started)
+
+        slots = threading.BoundedSemaphore(self.plan.documents * 2)  # bounded queue
+        futures: list[Future[JobResult]] = []
+        with ThreadPoolExecutor(self.plan.documents, thread_name_prefix="searchify") as pool:
+            for job_id, candidate in enumerate(found.candidates):
+                if self.cancel.is_set():
+                    results.append(
+                        self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
+                    )
+                    continue
+                planned = self._decide(job_id, candidate)
+                if isinstance(planned, JobResult):
+                    results.append(planned)
+                    continue
+                while not slots.acquire(timeout=0.1):
+                    if self.cancel.is_set():
+                        break
+                if self.cancel.is_set():
+                    results.append(
+                        self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
+                    )
+                    continue
+                self._emit(job_id, candidate.source, JobState.QUEUED)
+                future = pool.submit(self._execute, planned)
+                future.add_done_callback(lambda _f: slots.release())
+                futures.append(future)
+            results.extend(future.result() for future in futures)
+        results.sort(key=lambda r: r.job_id)
+        return self._summary(results, found.omissions, started)
+
+    # -- decisions ---------------------------------------------------------------------
+
+    def _decide(self, job_id: int, candidate: Candidate) -> _Plan | JobResult:
+        self._emit(job_id, candidate.source, JobState.DECIDING)
+        problem = destination_problem(candidate.source, candidate.destination)
+        if problem is not None:
+            return self._finish(job_id, candidate, Outcome.FAILED, problem)
+        try:
+            info = inspect_pdf(candidate.source)
+        except PdfInspectionError as exc:
+            return self._finish(job_id, candidate, Outcome.FAILED, exc.reason, exc.detail)
+        pages = PageCounts(inspected=info.page_count)
+        if info.encrypted:
+            return self._finish(job_id, candidate, Outcome.FAILED, Reason.ENCRYPTED, pages=pages)
+        if info.signed:
+            return self._finish(job_id, candidate, Outcome.FAILED, Reason.SIGNED, pages=pages)
+        if info.generated_marker:
+            return self._finish(job_id, candidate, Outcome.SKIPPED, Reason.GENERATED_COPY)
+
+        overwrite = False
+        if candidate.destination.exists():
+            choice = self._output_choice(candidate)
+            if choice is None:
+                return self._finish(
+                    job_id, candidate, Outcome.ACTION_REQUIRED, Reason.ASK_NONINTERACTIVE
+                )
+            if choice is Choice.CANCEL:
+                self.cancel.set()
+                return self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
+            if choice is Choice.NO:
+                return self._finish(job_id, candidate, Outcome.SKIPPED, Reason.OUTPUT_EXISTS)
+            overwrite = True
+
+        mode: OcrMode | None = OcrMode.PRESERVE_TEXT
+        if info.any_text:
+            choice = self._text_choice(candidate, info)
+            if choice is None:
+                return self._finish(
+                    job_id, candidate, Outcome.ACTION_REQUIRED, Reason.ASK_NONINTERACTIVE
+                )
+            if choice is Choice.CANCEL:
+                self.cancel.set()
+                return self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
+            if choice is Choice.YES:
+                mode = OcrMode.REDO_OCR
+            elif info.all_text:
+                mode = None
+        notes = (Reason.LOOKS_GENERATED,) if candidate.looks_generated else ()
+        return _Plan(job_id, candidate, info, overwrite, mode, notes, self.clock())
+
+    def _output_choice(self, candidate: Candidate) -> Choice | None:
+        policy = self.settings.existing_output_policy
+        if policy is ExistingOutputPolicy.OVERWRITE:
+            return Choice.YES
+        if policy is ExistingOutputPolicy.NEVER_OVERWRITE:
+            return Choice.NO
+        if self._batch_output is not None:
+            return self._batch_output
+        decision = self.decisions.existing_output(candidate.source, candidate.destination)
+        if decision is None:
+            return None
+        if decision.apply_to_batch and decision.choice is not Choice.CANCEL:
+            self._batch_output = decision.choice
+        return decision.choice
+
+    def _text_choice(self, candidate: Candidate, info: PdfInfo) -> Choice | None:
+        policy = self.settings.existing_text_policy
+        if policy is ExistingTextPolicy.ALWAYS_REPLACE:
+            return Choice.YES
+        if policy is ExistingTextPolicy.NEVER_REPLACE:
+            return Choice.NO
+        if self._batch_text is not None:
+            return self._batch_text
+        decision = self.decisions.existing_text(
+            candidate.source, info.text_page_count, info.page_count
+        )
+        if decision is None:
+            return None
+        if decision.apply_to_batch and decision.choice is not Choice.CANCEL:
+            self._batch_text = decision.choice
+        return decision.choice
+
+    # -- execution ---------------------------------------------------------------------
+
+    def _execute(self, plan: _Plan) -> JobResult:
+        candidate, info = plan.candidate, plan.info
+        start = self.clock()
+        queue_seconds = start - plan.submitted
+        pages = self._page_counts(plan)
+
+        def done(
+            outcome: Outcome,
+            reason: Reason,
+            detail: str = "",
+            *,
+            pages: PageCounts = NO_PAGES,
+            notes: tuple[Reason, ...] = (),
+        ) -> JobResult:
+            return self._finish(
+                plan.job_id,
+                candidate,
+                outcome,
+                reason,
+                detail,
+                duration=self.clock() - start,
+                queue=queue_seconds,
+                pages=pages,
+                notes=plan.notes + notes,
+            )
+
+        if self.cancel.is_set():
+            return done(Outcome.CANCELLED, Reason.CANCELLED)
+        self._emit(plan.job_id, candidate.source, JobState.RUNNING)
+        lock = FileLock(lock_path_for(candidate.destination))
+        try:
+            acquired = lock.acquire()
+        except OSError as exc:
+            return done(Outcome.FAILED, reason_for_os_error(exc), str(exc))
+        if not acquired:
+            return done(Outcome.SKIPPED, Reason.LOCKED)
+        staging = new_staging_path(candidate.destination)
+        engine_notes: tuple[Reason, ...] = ()
+        try:
+            if plan.mode is None:
+                shutil.copyfile(candidate.source, staging)
+            else:
+                request = EngineRequest(
+                    candidate.source,
+                    staging,
+                    self.settings.ocr_languages,
+                    plan.mode,
+                    deskew=self.settings.deskew,
+                    rotate_pages=self.settings.rotate_pages,
+                    page_jobs=self.plan.page_jobs if self.plan else 1,
+                    timeout_seconds=float(self.settings.timeout_seconds),
+                )
+                result = self.engine.run(request, self.cancel)
+                engine_notes = result.notes
+                if not result.ok:
+                    outcome = (
+                        Outcome.CANCELLED if result.reason is Reason.CANCELLED else Outcome.FAILED
+                    )
+                    failed = dataclasses.replace(pages, failed=info.page_count, ocr_processed=0)
+                    return done(
+                        outcome, result.reason, result.detail, pages=failed, notes=engine_notes
+                    )
+            if self.cancel.is_set():
+                return done(Outcome.CANCELLED, Reason.CANCELLED, notes=engine_notes)
+            self._emit(plan.job_id, candidate.source, JobState.VALIDATING)
+            add_marker(staging, self.version)
+            validate_output(staging, info.page_count)
+            self._emit(plan.job_id, candidate.source, JobState.PUBLISHING)
+            publish(staging, candidate.destination, overwrite=plan.overwrite)
+        except PublishError as exc:
+            outcome = Outcome.SKIPPED if exc.reason is Reason.OUTPUT_EXISTS else Outcome.FAILED
+            return done(outcome, exc.reason, exc.detail, notes=engine_notes)
+        except OSError as exc:
+            return done(Outcome.FAILED, reason_for_os_error(exc), str(exc), notes=engine_notes)
+        except Exception as exc:  # e.g. pikepdf failing on a damaged engine output
+            return done(Outcome.FAILED, Reason.VALIDATION_FAILED, str(exc), notes=engine_notes)
+        finally:
+            discard(staging)
+            lock.release()
+        if plan.mode is None:
+            return done(Outcome.PRESERVED, Reason.ALL_PAGES_HAVE_TEXT, pages=pages)
+        return done(Outcome.CONVERTED, Reason.OK, pages=pages, notes=engine_notes)
+
+    @staticmethod
+    def _page_counts(plan: _Plan) -> PageCounts:
+        info = plan.info
+        if plan.mode is None:
+            return PageCounts(inspected=info.page_count, preserved=info.page_count)
+        if plan.mode is OcrMode.REDO_OCR:
+            return PageCounts(inspected=info.page_count, ocr_processed=info.page_count)
+        return PageCounts(
+            inspected=info.page_count,
+            ocr_processed=info.page_count - info.text_page_count,
+            preserved=info.text_page_count,
+        )
+
+    # -- helpers -----------------------------------------------------------------------
+
+    def _emit(
+        self, job_id: int, source: Path, state: JobState, result: JobResult | None = None
+    ) -> None:
+        self.on_event(JobEvent(job_id, source, state, result))
+
+    def _finish(
+        self,
+        job_id: int,
+        candidate: Candidate,
+        outcome: Outcome,
+        reason: Reason,
+        detail: str = "",
+        *,
+        duration: float = 0.0,
+        queue: float = 0.0,
+        pages: PageCounts = NO_PAGES,
+        notes: tuple[Reason, ...] = (),
+    ) -> JobResult:
+        written = outcome in {Outcome.CONVERTED, Outcome.PRESERVED}
+        result = JobResult(
+            job_id,
+            candidate.source,
+            candidate.destination if written else None,
+            outcome,
+            reason,
+            detail,
+            duration,
+            queue,
+            pages,
+            notes,
+        )
+        self._emit(job_id, candidate.source, JobState.FINISHED, result)
+        return result
+
+    def _summary(
+        self, results: list[JobResult], omissions: tuple[Omission, ...], started: float
+    ) -> BatchSummary:
+        return BatchSummary(
+            tuple(results),
+            omissions,
+            self.clock() - started,
+            self.plan.documents if self.plan else 1,
+        )

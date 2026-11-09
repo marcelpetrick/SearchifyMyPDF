@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.7.0 — 2026-11-09
+
+- feat(workflow): add batch workflow with policy decisions, prompts, locking and cancellation
+
 ## 0.6.0 — 2026-11-09
 
 - feat(publisher): add validated staging publication and shared CPU budget scheduler
