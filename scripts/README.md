@@ -18,3 +18,5 @@ repository root themselves.
 | `generate_inventory.py` | Generate the component inventory and collect license texts from the actual build environment (Python dists, Qt, Tesseract + linked native libraries via dpkg, language data). |
 | `prepare_release.sh` | Collect the tested binary, inventory, wheel, sdist and license into a release folder with `SHA256SUMS` and generated release notes (no rebuild). |
 | `docker_smoke.sh` | Build the CLI Docker image and smoke-test it offline on a synthetic folder (output, OCR words, unchanged original, exit code 3 for Ask). |
+| `run_mutation.sh` | Run mutmut on the core modules and enforce the mutation-score threshold (default 95 %); report in `reports/mutation.txt`. |
+| `mutation_score.py` | Compute the mutation score from `mutmut results`, excluding reviewed equivalents in `docs/mutation-equivalent.txt`. |

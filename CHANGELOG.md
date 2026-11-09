@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.0 — 2026-11-10
+
+- test(mutation): add mutmut baseline, hardening tests, threshold and scheduled workflow
+
 ## 0.15.0 — 2026-11-10
 
 - build(docker): add headless CLI image with smoke test and GHCR publishing workflow

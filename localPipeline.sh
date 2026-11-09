@@ -119,7 +119,11 @@ else
     skip docker
 fi
 
-# STAGE_MUTATION (added with the mutation baseline)
+if ${MUTATION}; then
+    stage mutation scripts/run_mutation.sh
+else
+    skip "mutation (use --mutation)"
+fi
 
 printf '\n=== summary ===\n'
 printf '%s\n' "${SUMMARY[@]}"

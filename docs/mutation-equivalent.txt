@@ -1,0 +1,32 @@
+# Reviewed equivalent mutants (excluded from the mutation score). One mutant name per line.
+# Each was inspected with `mutmut show <name>`; see docs/mutation-baseline.md for reasons.
+# os.walk: followlinks=None / omitted is the same as followlinks=False
+searchify_pdf.application.discovery.x__walk__mutmut_13
+searchify_pdf.application.discovery.x__walk__mutmut_16
+# "schema_version" is not a Settings field, so the explicit skip is redundant with "not in known"
+searchify_pdf.domain.settings.x_from_json__mutmut_16
+searchify_pdf.domain.settings.x_from_json__mutmut_17
+# v1 migration steps are idempotent for v2 documents (pop of an absent key, setdefault)
+searchify_pdf.domain.settings.x_migrate__mutmut_28
+searchify_pdf.domain.settings.x_migrate__mutmut_29
+# Codec names are case-insensitive
+searchify_pdf.storage.statistics.xǁStatisticsRepositoryǁload__mutmut_12
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁload__mutmut_34
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_is_malformed__mutmut_11
+# UnicodeDecodeError and SettingsError are both ValueError subclasses
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_is_malformed__mutmut_3
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_is_malformed__mutmut_4
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_is_malformed__mutmut_6
+# Reading one more byte beyond the limit changes nothing observable (limit check uses >)
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_read_bytes__mutmut_6
+# sha256 hex digest is never empty, so the `or ""` fallback is unreachable
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁsave__mutmut_58
+# Random token length/entropy of the staging name is not behaviour
+searchify_pdf.storage.publisher.x_new_staging_path__mutmut_5
+searchify_pdf.storage.publisher.x_new_staging_path__mutmut_6
+# read(None) reads the whole file; the size check (> MAX) still reports too_large
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_read_bytes__mutmut_4
+# 60 s vs 61 s stale threshold for the settings lock is not observable at test resolution
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁsave__mutmut_18
+# Retry count of the settings lock (20 vs 21 attempts) is timing, not behaviour
+searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_acquire__mutmut_1

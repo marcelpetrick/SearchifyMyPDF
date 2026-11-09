@@ -131,11 +131,22 @@ exclude_also = [
 ]
 
 [tool.mutmut]
-paths_to_mutate = [
-    "src/searchify_pdf/domain/",
-    "src/searchify_pdf/application/discovery.py",
-    "src/searchify_pdf/application/scheduler.py",
-    "src/searchify_pdf/storage/statistics.py",
+# Mutation testing targets the decision-heavy core: settings/policies/paths, discovery,
+# scheduling, statistics and publication. UI, CLI and engine adapters are covered by
+# UI/integration/E2E tests instead (see docs/mutation-baseline.md).
+paths_to_mutate = ["src/"]
+do_not_mutate = [
+    "src/searchify_pdf/ui/*",
+    "src/searchify_pdf/cli/*",
+    "src/searchify_pdf/engines/*",
+    "src/searchify_pdf/platform/*",
+    "src/searchify_pdf/i18n.py",
+    "src/searchify_pdf/__main__.py",
+    "src/searchify_pdf/_version.py",
+    "src/searchify_pdf/application/workflow.py",
+    "src/searchify_pdf/storage/locks.py",
+    "src/searchify_pdf/storage/atomic.py",
 ]
 tests_dir = ["tests/unit/"]
+also_copy = ["tests/"]
 pytest_add_cli_args = ["-q", "-x", "-p", "no:cacheprovider"]
