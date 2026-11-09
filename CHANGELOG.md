@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.3 — 2026-11-10
+
+- fix(inventory): list only bundled runtime components and the PyInstaller bootloader
+
 ## 0.16.2 — 2026-11-10
 
 - fix(ui): improve progress bar contrast and escape ampersand in group titles

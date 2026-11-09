@@ -47,6 +47,41 @@ def run(cmd: list[str]) -> str:
         return ""
 
 
+RUNTIME_ROOTS = ("searchify-pdf", "PySide6-Essentials")
+
+
+def _canonical(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def runtime_closure(roots: tuple[str, ...] = RUNTIME_ROOTS) -> set[str]:
+    """Canonical names of the distributions the application needs at run time.
+
+    Walks ``Requires-Dist`` recursively from the roots, skipping extras and requirements
+    whose environment markers do not apply, so build/test tools are not reported as
+    bundled components.
+    """
+    from packaging.requirements import Requirement
+
+    seen: set[str] = set()
+    stack = [_canonical(r) for r in roots]
+    while stack:
+        name = stack.pop()
+        if name in seen:
+            continue
+        try:
+            requires = metadata.requires(name) or []
+        except metadata.PackageNotFoundError:
+            continue
+        seen.add(name)
+        for spec in requires:
+            req = Requirement(spec)
+            if req.marker is not None and not req.marker.evaluate({"extra": ""}):
+                continue
+            stack.append(_canonical(req.name))
+    return seen
+
+
 def copy_python_licenses(target: Path) -> dict[str, str]:
     found: dict[str, str] = {}
     for dist in metadata.distributions():
@@ -91,7 +126,13 @@ def native_components(target: Path) -> list[Component]:
         if copyright_file.is_file():
             text = copyright_file.read_text(encoding="utf-8", errors="replace")
             (target / f"native-{package}.txt").write_text(text, encoding="utf-8")
-        licenses = sorted(set(re.findall(r"^License:\s*(\S+)", text, re.MULTILINE)))
+        licenses = sorted(
+            {
+                name
+                for name in re.findall(r"^License:\s*(\S+)", text, re.MULTILINE)
+                if re.fullmatch(r"[A-Za-z0-9.+-]+", name)
+            }
+        )
         result.append(
             Component(
                 name=package,
@@ -156,7 +197,19 @@ def main(argv: list[str]) -> int:
         )
     except ImportError:
         pass
+    bundled = runtime_closure()
+    components.append(
+        Component(
+            "PyInstaller bootloader",
+            metadata.version("pyinstaller"),
+            "GPL-2.0-or-later WITH Bootloader-exception",
+            "https://pyinstaller.org/",
+            kind="native",
+        )
+    )
     for component in python_components():
+        if _canonical(component.name) not in bundled:
+            continue
         text = license_files.get(component.name.lower(), "")
         components.append(
             Component(
