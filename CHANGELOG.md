@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.12.0 — 2026-11-09
+
+- feat(cli): add entry point with drop-launch dispatch, headless CLI and exit codes
+
 ## 0.11.0 — 2026-11-09
 
 - feat(ui): add Qt desktop UI with drop zone, progress, prompts, settings, statistics and about

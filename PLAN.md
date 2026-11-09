@@ -94,3 +94,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.9.0 | 2026-11-09 | feat(statistics): add opt-in local statistics with true medians and labelled estimates |
 | 0.10.0 | 2026-11-09 | feat(platform): add bundled runtime setup, Linux launcher integration and component inventory |
 | 0.11.0 | 2026-11-09 | feat(ui): add Qt desktop UI with drop zone, progress, prompts, settings, statistics and about |
+| 0.12.0 | 2026-11-09 | feat(cli): add entry point with drop-launch dispatch, headless CLI and exit codes |
