@@ -12,3 +12,4 @@ repository root themselves.
 | `check_coverage.py` | Enforce statement **and** branch coverage thresholds separately from `coverage.json`. |
 | `check_headers.py` | Verify SPDX GPL-3.0-or-later + copyright headers on all first-party `.py`/`.sh` files. |
 | `fetch_tessdata.sh` | Download pinned, checksum-verified Tesseract eng/deu/osd data plus the configs OCRmyPDF needs. |
+| `install_ci_dependencies.sh` | Install Tesseract and Qt runtime libraries on a Debian/Ubuntu CI runner. |
