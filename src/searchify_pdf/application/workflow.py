@@ -156,10 +156,7 @@ class BatchRunner:
                 if isinstance(planned, JobResult):
                     results.append(planned)
                     continue
-                while not slots.acquire(timeout=0.1):
-                    if self.cancel.is_set():
-                        break
-                if self.cancel.is_set():
+                if not self._wait_for_slot(slots):
                     results.append(
                         self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
                     )
@@ -171,6 +168,13 @@ class BatchRunner:
             results.extend(future.result() for future in futures)
         results.sort(key=lambda r: r.job_id)
         return self._summary(results, found.omissions, started)
+
+    def _wait_for_slot(self, slots: threading.BoundedSemaphore) -> bool:
+        """Block until the bounded queue has room; False when the batch was cancelled."""
+        while not self.cancel.is_set():
+            if slots.acquire(timeout=0.1):
+                return True
+        return False
 
     # -- decisions ---------------------------------------------------------------------
 

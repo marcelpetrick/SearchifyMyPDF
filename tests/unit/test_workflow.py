@@ -400,3 +400,13 @@ def test_engine_reports_cancel(tmp_path: Path) -> None:
     src = synthetic.scanned_pdf(tmp_path / "a.pdf")
     result = runner(engine=FakeEngine(fail=Reason.CANCELLED)).run([src]).results[0]
     assert result.outcome is Outcome.CANCELLED
+
+
+def test_wait_for_slot_is_cancellable() -> None:
+    r = runner()
+    slots = threading.BoundedSemaphore(1)
+    assert r._wait_for_slot(slots)
+    timer = threading.Timer(0.2, r.cancel.set)
+    timer.start()
+    assert not r._wait_for_slot(slots)  # full queue, then cancelled
+    timer.join()
