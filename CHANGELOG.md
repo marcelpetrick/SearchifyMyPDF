@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.7 — 2026-11-10
+
+- docs(readme): document usage, pipeline, Docker and add real UI screenshots
+
 ## 0.16.6 — 2026-11-10
 
 - ci(deps): add Dependabot and daily pip-audit dependency scan
