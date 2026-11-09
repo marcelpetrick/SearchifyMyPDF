@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.9 — 2026-11-10
+
+- docs(plan): record milestone status and evidence for A01-A20
+
 ## 0.16.8 — 2026-11-10
 
 - chore(scripts): add sample corpus generator and run mutation checks on core PRs

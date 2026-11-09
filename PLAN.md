@@ -52,30 +52,35 @@ Architecture keeps platform adapters separate; artifacts and native evidence are
 
 ## Status
 
-Updated at the end of the work session; see the evidence matrix below.
+Architecture: [`docs/architecture.md`](docs/architecture.md) (C4 context/container/component,
+flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
+[`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
+
+Milestones: **M0 ✅ · M1 ✅ · M2 ✅ (Linux prerelease pending owner review of the draft) ·
+M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
-| A01 | ❌ | |
-| A02 | ❌ | |
-| A03 | ❌ | |
-| A04 | ❌ | |
-| A05 | ❌ | |
-| A06 | ❌ | |
-| A07 | ❌ | |
-| A08 | ❌ | |
-| A09 | ❌ | |
-| A10 | ❌ | |
-| A11 | ❌ | |
-| A12 | ❌ | |
-| A13 | ❌ | |
-| A14 | ❌ | |
-| A15 | ❌ | |
-| A16 | ❌ | |
-| A17 | ❌ | |
-| A18 | ❌ | |
-| A19 | ❌ | |
-| A20 | ❌ | |
+| A01 | ✅ | `tests/integration/test_engine_ocr.py` (synthetic EN/DE + public-domain 1946 typewritten scan), packaged E2E |
+| A02 | ✅ | checksums before/after in workflow, fault (kill, cancel, overwrite failure) and E2E tests |
+| A03 | ✅ | `test_folder_recursive_adjacent_and_repeat_run`, `test_nested_unicode_folder_real_ocr`, E2E offline conversion |
+| A04 | ✅ | repeat-run, suffix-change and explicit-override tests (`test_workflow.py`, `test_inspect_discovery.py`) |
+| A05 | ✅ | keep/ask/replace with digital and mixed fixtures; redo never force-rasterizes (`test_redo_replaces_previous_ocr_without_rasterizing`) |
+| A06 | ✅ | overwrite/ask/skip incl. failed replacement keeps previous copy; CLI exit code 3 |
+| A07 | ✅ | UI save/close/discard/cancel, write failure, read-only, malformed, stale settings tests |
+| A08 | ✅ | packaged E2E: settings beside the executable, read-only app folder, no other writes |
+| A09 | 🟡 | drop launch = paths at start-up (GUI smoke in packaged E2E), launcher file tested; interactive desktop drop: manual check pending (#7) |
+| A10 | ✅ | packaged E2E in clean, offline Ubuntu 22.04 containers without Python/Tesseract |
+| A11 | 🟡 | light/dark + EN/DE tested offscreen, screenshots in README; formal accessibility review pending (#7) |
+| A12 | ✅ | worker-limit test (max concurrency), cancellation kills process tree, timeout test, benchmark |
+| A13 | ✅ | off by default, true medians, no double counting, failure handling (`test_statistics.py`) |
+| A14 | ✅ | locks, simultaneous instances, no-clobber, disk full, permission, alias, hard-kill recovery |
+| A15 | ✅ | 100 % statement / 100 % branch (minimum 95 % each, enforced separately) |
+| A16 | ✅ | mutation 100 % of non-equivalent (min 95 %), real-OCR integration, packaged E2E |
+| A17 | ✅ | `docs/desktop-matrix.md` advertises Linux x86-64 only |
+| A18 | 🟡 | release workflow promotes tested assets with SHA256SUMS + inventory to a **draft**; owner reviews/publishes (#12) |
+| A19 | ⏳ | procedure in `docs/windows-search.md`; Windows build is M3 (#10) |
+| A20 | ✅ | `docs/security-review.md` with regression tests; residual risk #13 |
 
 ## Progress log (one row per commit, appended by `scripts/commit.sh`)
 
@@ -108,3 +113,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.16.6 | 2026-11-10 | ci(deps): add Dependabot and daily pip-audit dependency scan |
 | 0.16.7 | 2026-11-10 | docs(readme): document usage, pipeline, Docker and add real UI screenshots |
 | 0.16.8 | 2026-11-10 | chore(scripts): add sample corpus generator and run mutation checks on core PRs |
+| 0.16.9 | 2026-11-10 | docs(plan): record milestone status and evidence for A01-A20 |
