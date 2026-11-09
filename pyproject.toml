@@ -1,0 +1,138 @@
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "searchify-pdf"
+description = "Make scanned PDFs searchable: local desktop OCR that writes adjacent searchable copies."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Marcel Petrick", email = "mail@marcelpetrick.it" }]
+keywords = ["ocr", "pdf", "searchable", "tesseract", "ocrmypdf", "desktop"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+]
+dynamic = ["version"]
+dependencies = [
+    "ocrmypdf==17.14.1",
+    "pikepdf==10.18.0",
+    "pypdfium2==5.15.2",
+    "psutil==7.2.2",
+]
+
+[project.optional-dependencies]
+gui = ["PySide6-Essentials==6.12.0"]
+
+[dependency-groups]
+dev = [
+    "PySide6-Essentials==6.12.0",
+    "black==26.10.1",
+    "build==1.6.1",
+    "coverage==7.17.2",
+    "hypothesis==6.170.15",
+    "mutmut==3.8.1",
+    "mypy==2.4.1",
+    "pillow==13.0.0",
+    "pyinstaller==6.22.3",
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "pytest-qt==4.5.0",
+    "pytest-timeout==2.4.0",
+    "ruff==0.17.4",
+    "types-psutil==7.2.2.20260906",
+]
+
+[project.scripts]
+searchify-pdf = "searchify_pdf.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/marcelpetrick/SearchifyMyPDF"
+Issues = "https://github.com/marcelpetrick/SearchifyMyPDF/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+searchify_pdf = ["resources/*", "py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "searchify_pdf._version.__version__" }
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PIE", "RET", "PTH", "S", "N", "RUF"]
+ignore = [
+    "E501",   # line length is owned by Black
+    "S603",   # subprocess calls use argument arrays on purpose
+    "S607",   # tool lookup through PATH is intended for bundled engines
+    "RUF001", # German UI strings contain intentional non-ASCII characters
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S108", "S105", "S106", "PTH", "N802"]
+"scripts/**" = ["S101", "T201"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+packages = ["searchify_pdf"]
+
+[[tool.mypy.overrides]]
+module = ["ocrmypdf.*", "pypdfium2.*", "PyInstaller.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers", "-ra"]
+testpaths = ["tests"]
+timeout = 300
+markers = [
+    "ocr: runs the real OCR engine (Tesseract via OCRmyPDF)",
+    "ui: exercises the Qt user interface (offscreen)",
+    "e2e: runs the packaged application artifact",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["searchify_pdf"]
+parallel = true
+patch = ["subprocess"]
+
+[tool.coverage.paths]
+source = ["src/searchify_pdf", "*/site-packages/searchify_pdf"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.$",
+]
+
+[tool.mutmut]
+paths_to_mutate = [
+    "src/searchify_pdf/domain/",
+    "src/searchify_pdf/application/discovery.py",
+    "src/searchify_pdf/application/scheduler.py",
+    "src/searchify_pdf/storage/statistics.py",
+]
+tests_dir = ["tests/unit/"]
+pytest_add_cli_args = ["-q", "-x", "-p", "no:cacheprovider"]

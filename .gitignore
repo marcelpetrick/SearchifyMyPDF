@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+# Tooling caches and reports
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.json
+coverage.xml
+reports/
+mutants/
+# Runtime files created beside the application during development
+searchify-pdf.settings.json
+searchify-pdf.statistics.json
