@@ -239,6 +239,8 @@ class MainWindow(QMainWindow):
         self.progress = QProgressBar()
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        self.progress.setTextVisible(False)  # the status line below carries the numbers
+        self.progress.setFixedHeight(10)
         layout.addWidget(self.progress)
         self.status_label = named(QLabel(), "hint")
         self.summary_label = named(QLabel(), "summary")
@@ -446,7 +448,7 @@ class MainWindow(QMainWindow):
         self.group_recognition.setTitle(t("settings.group.recognition"))
         self.group_files.setTitle(t("settings.group.files"))
         self.group_performance.setTitle(t("settings.group.performance"))
-        self.group_appearance.setTitle(t("settings.group.appearance"))
+        self.group_appearance.setTitle(t("settings.group.appearance").replace("&", "&&"))
         self.languages_label.setText(t("settings.languages"))
         self.languages_hint.setText(t("settings.languages.hint"))
         for code, box in self.language_boxes.items():

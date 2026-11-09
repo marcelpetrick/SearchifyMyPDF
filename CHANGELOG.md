@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.2 — 2026-11-10
+
+- fix(ui): improve progress bar contrast and escape ampersand in group titles
+
 ## 0.16.1 — 2026-11-10
 
 - fix(publisher): remove staging leftovers of interrupted runs and add fault tests
