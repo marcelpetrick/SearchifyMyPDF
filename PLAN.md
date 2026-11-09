@@ -88,3 +88,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.3.0 | 2026-11-09 | feat(storage): add portable settings repository, atomic writes and stale-safe locks |
 | 0.4.0 | 2026-11-09 | feat(discovery): add PDF inspection and recursive discovery with generated-copy exclusion |
 | 0.5.0 | 2026-11-09 | feat(engine): add OCRmyPDF adapter running isolated, cancellable worker processes |
+| 0.6.0 | 2026-11-09 | feat(publisher): add validated staging publication and shared CPU budget scheduler |
