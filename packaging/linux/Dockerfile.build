@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
+#
+# Reproducible build environment for the Linux one-file executable.
+# Ubuntu 22.04 sets the glibc baseline (2.35) and supplies Tesseract 4.1.1 + Leptonica,
+# which are bundled into the executable together with their shared libraries.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    UV_PYTHON_INSTALL_DIR=/opt/python \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr binutils file ca-certificates curl \
+        libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libfreetype6 \
+        libdbus-1-3 libglib2.0-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 \
+        libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 \
+        libxcb-xkb1 libx11-xcb1 libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /usr/local/bin/uv
+RUN uv python install 3.12
+WORKDIR /work

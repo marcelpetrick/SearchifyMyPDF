@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
+#
+# A minimal "desktop-like" Ubuntu 22.04 with the graphics/font libraries every Linux
+# desktop already has, but WITHOUT Python or Tesseract. Used to smoke-test the packaged
+# GUI offscreen.
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*

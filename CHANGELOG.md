@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.13.0 — 2026-11-10
+
+- build(linux): add self-contained PyInstaller executable with bundled Tesseract and packaged E2E tests
+
 ## 0.12.1 — 2026-11-09
 
 - fix(engine): run OCRmyPDF page workers as threads for frozen-app safety

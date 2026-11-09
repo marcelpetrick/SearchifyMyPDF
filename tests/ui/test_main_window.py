@@ -584,3 +584,16 @@ def test_gui_decisions_from_worker_thread(qtbot: QtBot, tmp_path: Path) -> None:
     qtbot.waitUntil(lambda: len(answers) == 2, timeout=5000)
     t.join()
     assert answers == [Decision(Choice.YES), Decision(Choice.YES, True)]
+
+
+def test_smoke_test_entry(qtbot: QtBot, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    src = synthetic.scanned_pdf(tmp_path / "a.pdf")
+    assert (
+        app_module.smoke_test(Settings(), [src], tmp_path, engine_factory=lambda: FakeEngine()) == 0
+    )
+    assert "gui-smoke ok" in capsys.readouterr().out
+    assert app_module.smoke_test(Settings(), [], tmp_path, engine_factory=lambda: FakeEngine()) == 0
+    bad = synthetic.corrupt_pdf(tmp_path / "bad.pdf")
+    assert (
+        app_module.smoke_test(Settings(), [bad], tmp_path, engine_factory=lambda: FakeEngine()) == 1
+    )

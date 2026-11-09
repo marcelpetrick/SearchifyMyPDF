@@ -10,10 +10,11 @@ immediately with the saved settings (VISION §3.1).
 from __future__ import annotations
 
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QApplication
 
@@ -55,6 +56,34 @@ def create_window(
         window.add_paths(paths)
         QTimer.singleShot(0, window.start)
     return app, window
+
+
+def smoke_test(
+    settings: Settings,
+    paths: list[Path],
+    app_dir: Path,
+    *,
+    timeout_seconds: float = 600.0,
+    engine_factory: Callable[[], OcrEngine] = _default_engine,
+) -> int:
+    """Open the real window (e.g. offscreen), run a drop launch for ``paths`` and exit.
+
+    Used by the packaged end-to-end test to prove the frozen GUI starts and processes a
+    dropped folder with the saved settings. Prints one line and returns 0 on success.
+    """
+    app, window = create_window(settings, paths, app_dir, engine_factory)
+    window.show()
+    deadline = time.monotonic() + timeout_seconds
+    app.processEvents()
+    while (window.running or (paths and window.last_summary is None)) and (
+        time.monotonic() < deadline
+    ):
+        app.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
+    summary = window.last_summary
+    ok = summary.succeeded if summary is not None else not paths
+    print(f"gui-smoke {'ok' if ok else 'failed'}: {window.summary_label.text()!r}", flush=True)
+    window.close()
+    return 0 if ok else 1
 
 
 def run_gui(settings: Settings, paths: list[Path], app_dir: Path) -> int:  # pragma: no cover

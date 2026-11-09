@@ -261,3 +261,12 @@ def test_entry_point_dispatch(
     monkeypatch.delattr(sys, "_MEIPASS")
     assert entry.main(["--licenses"]) == 0
     capsys.readouterr()
+
+
+def test_gui_smoke_flag_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import searchify_pdf.ui.app as ui_app
+
+    seen: list[list[Path]] = []
+    monkeypatch.setattr(ui_app, "smoke_test", lambda s, p, d: seen.append(p) or 0)
+    assert run(["--gui-smoke-test", str(tmp_path)])[0] == 0
+    assert seen == [[tmp_path]]

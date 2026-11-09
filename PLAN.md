@@ -96,3 +96,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.11.0 | 2026-11-09 | feat(ui): add Qt desktop UI with drop zone, progress, prompts, settings, statistics and about |
 | 0.12.0 | 2026-11-09 | feat(cli): add entry point with drop-launch dispatch, headless CLI and exit codes |
 | 0.12.1 | 2026-11-09 | fix(engine): run OCRmyPDF page workers as threads for frozen-app safety |
+| 0.13.0 | 2026-11-10 | build(linux): add self-contained PyInstaller executable with bundled Tesseract and packaged E2E tests |

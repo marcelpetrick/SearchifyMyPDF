@@ -93,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ui-language", choices=[lang.value for lang in UiLanguage])
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--licenses", action="store_true", help="list bundled components")
+    parser.add_argument("--gui-smoke-test", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--install-desktop-entry",
         action="store_true",
@@ -298,6 +299,10 @@ def main(
         sys.stderr.write(f"{APP_ID}: invalid option: {exc}\n")
         return EXIT_USAGE
 
+    if args.gui_smoke_test:
+        from searchify_pdf.ui.app import smoke_test
+
+        return smoke_test(settings, list(args.paths), app_dir)
     use_gui = args.gui or (not args.cli and gui_available(os.environ))
     if use_gui:
         if gui_launcher is None:

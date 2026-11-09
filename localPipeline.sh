@@ -106,7 +106,14 @@ else
     stage wheel bash -c "rm -rf dist && uv build --out-dir dist"
 fi
 
-# STAGES_PACKAGE_DOCKER_MUTATION (added as the packaging work lands)
+if ${PACKAGE}; then
+    stage binary scripts/build_linux_binary.sh
+    stage e2e scripts/e2e_packaged.sh
+else
+    skip "binary"; skip "e2e"
+fi
+
+# STAGES_DOCKER_MUTATION (added as the work lands)
 
 printf '\n=== summary ===\n'
 printf '%s\n' "${SUMMARY[@]}"
