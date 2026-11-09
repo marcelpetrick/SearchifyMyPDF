@@ -410,3 +410,13 @@ def test_wait_for_slot_is_cancellable() -> None:
     timer.start()
     assert not r._wait_for_slot(slots)  # full queue, then cancelled
     timer.join()
+
+
+def test_cancel_while_waiting_for_queue_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sources = [synthetic.scanned_pdf(tmp_path / f"{i}.pdf") for i in range(2)]
+    r = runner()
+    monkeypatch.setattr(r, "_wait_for_slot", lambda slots: False)  # cancelled while queue full
+    summary = r.run(sources)
+    assert [res.outcome for res in summary.results] == [Outcome.CANCELLED, Outcome.CANCELLED]

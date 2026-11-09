@@ -50,6 +50,7 @@ from searchify_pdf.storage.publisher import (
     new_staging_path,
     publish,
     reason_for_os_error,
+    remove_stale_staging,
     validate_output,
 )
 
@@ -296,6 +297,7 @@ class BatchRunner:
             return done(Outcome.FAILED, reason_for_os_error(exc), str(exc))
         if not acquired:
             return done(Outcome.SKIPPED, Reason.LOCKED)
+        remove_stale_staging(candidate.destination)
         staging = new_staging_path(candidate.destination)
         engine_notes: tuple[Reason, ...] = ()
         try:

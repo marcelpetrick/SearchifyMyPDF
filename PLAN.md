@@ -100,3 +100,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.14.0 | 2026-11-10 | ci(release): add tag-triggered release pipeline promoting tested assets to a draft release |
 | 0.15.0 | 2026-11-10 | build(docker): add headless CLI image with smoke test and GHCR publishing workflow |
 | 0.16.0 | 2026-11-10 | test(mutation): add mutmut baseline, hardening tests, threshold and scheduled workflow |
+| 0.16.1 | 2026-11-10 | fix(publisher): remove staging leftovers of interrupted runs and add fault tests |

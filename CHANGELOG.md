@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.1 — 2026-11-10
+
+- fix(publisher): remove staging leftovers of interrupted runs and add fault tests
+
 ## 0.16.0 — 2026-11-10
 
 - test(mutation): add mutmut baseline, hardening tests, threshold and scheduled workflow

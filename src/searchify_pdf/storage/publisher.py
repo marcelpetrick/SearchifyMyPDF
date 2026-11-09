@@ -27,7 +27,7 @@ import secrets
 from pathlib import Path
 
 from searchify_pdf.domain.jobs import Reason
-from searchify_pdf.domain.paths import staging_path_for
+from searchify_pdf.domain.paths import STAGING_MARKER, staging_path_for
 from searchify_pdf.engines.pdf_inspect import count_pages
 from searchify_pdf.storage.atomic import classify_os_error
 
@@ -76,6 +76,21 @@ def destination_problem(source: Path, destination: Path) -> Reason | None:
 
 def new_staging_path(destination: Path) -> Path:
     return staging_path_for(destination, secrets.token_hex(6))
+
+
+def remove_stale_staging(destination: Path) -> int:
+    """Delete leftover staging files of ``destination`` from an interrupted earlier run.
+
+    Only call while holding the target's lock: then no live writer owns such a file.
+    Returns the number of removed files.
+    """
+    removed = 0
+    pattern = f".{destination.name}.*{STAGING_MARKER}"
+    for leftover in destination.parent.glob(pattern):
+        with contextlib.suppress(OSError):
+            leftover.unlink()
+            removed += 1
+    return removed
 
 
 def discard(staging: Path) -> None:

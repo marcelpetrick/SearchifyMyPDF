@@ -188,3 +188,13 @@ def test_publish_io_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     with pytest.raises(PublishError) as info:
         publish(_staged(dest), dest, overwrite=True)
     assert info.value.reason is Reason.PERMISSION_DENIED
+
+
+def test_remove_stale_staging_only_touches_own_target(tmp_path: Path) -> None:
+    dest = tmp_path / "a_searchable.pdf"
+    mine = [new_staging_path(dest), new_staging_path(dest)]
+    other = new_staging_path(tmp_path / "b_searchable.pdf")
+    for path in (*mine, other):
+        path.write_bytes(b"partial")
+    assert publisher.remove_stale_staging(dest) == 2
+    assert [p.name for p in tmp_path.iterdir()] == [other.name]
