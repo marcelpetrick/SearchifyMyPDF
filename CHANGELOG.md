@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.5.0 — 2026-11-09
+
+- feat(engine): add OCRmyPDF adapter running isolated, cancellable worker processes
+
 ## 0.4.0 — 2026-11-09
 
 - feat(discovery): add PDF inspection and recursive discovery with generated-copy exclusion
