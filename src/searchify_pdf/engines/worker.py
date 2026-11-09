@@ -27,6 +27,9 @@ def build_kwargs(request: dict[str, Any]) -> dict[str, Any]:
         "progress_bar": False,
         "jobs": max(1, int(request.get("page_jobs", 1))),
         "rotate_pages": bool(request.get("rotate_pages", False)),
+        # Page workers as threads: Tesseract runs as its own process anyway, and the
+        # frozen app then never depends on multiprocessing re-spawning the executable.
+        "use_threads": True,
     }
     if request["mode"] == "redo_ocr":
         kwargs["redo_ocr"] = True

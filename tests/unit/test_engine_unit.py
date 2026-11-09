@@ -35,6 +35,7 @@ def test_build_kwargs_modes() -> None:
     preserve = worker.build_kwargs({**base, "mode": "preserve_text", "page_jobs": 0})
     assert preserve["skip_text"] and preserve["deskew"] and preserve["jobs"] == 1
     assert preserve["output_type"] == "pdf" and preserve["language"] == ["eng", "deu"]
+    assert preserve["use_threads"] is True
     assert "redo_ocr" not in preserve and "force_ocr" not in preserve
     redo = worker.build_kwargs({**base, "mode": "redo_ocr"})
     assert redo["redo_ocr"] and "deskew" not in redo and "force_ocr" not in redo
