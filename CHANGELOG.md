@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.8.0 — 2026-11-09
+
+- feat(i18n): add English and German catalogs for outcomes, reasons, UI and prompts
+
 ## 0.7.0 — 2026-11-09
 
 - feat(workflow): add batch workflow with policy decisions, prompts, locking and cancellation
