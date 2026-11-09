@@ -85,3 +85,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.1.1 | 2026-11-09 | ci: run localPipeline.sh in GitHub Actions on Python 3.12 and 3.13 |
 | 0.1.2 | 2026-11-09 | chore: log every commit step in PLAN.md via commit helper |
 | 0.2.0 | 2026-11-09 | feat(domain): add validated settings, policies, path rules and job outcomes |
+| 0.3.0 | 2026-11-09 | feat(storage): add portable settings repository, atomic writes and stale-safe locks |

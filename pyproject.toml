@@ -82,6 +82,8 @@ ignore = [
     "S603",   # subprocess calls use argument arrays on purpose
     "S607",   # tool lookup through PATH is intended for bundled engines
     "RUF001", # German UI strings contain intentional non-ASCII characters
+    "PTH104", # os.rename/os.replace are used deliberately for atomic file operations
+    "PTH105",
 ]
 
 [tool.ruff.lint.per-file-ignores]

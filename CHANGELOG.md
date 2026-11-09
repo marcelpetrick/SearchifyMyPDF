@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.3.0 — 2026-11-09
+
+- feat(storage): add portable settings repository, atomic writes and stale-safe locks
+
 ## 0.2.0 — 2026-11-09
 
 - feat(domain): add validated settings, policies, path rules and job outcomes
