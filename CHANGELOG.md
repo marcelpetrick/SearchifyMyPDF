@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.9.0 — 2026-11-09
+
+- feat(statistics): add opt-in local statistics with true medians and labelled estimates
+
 ## 0.8.0 — 2026-11-09
 
 - feat(i18n): add English and German catalogs for outcomes, reasons, UI and prompts

@@ -91,3 +91,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.6.0 | 2026-11-09 | feat(publisher): add validated staging publication and shared CPU budget scheduler |
 | 0.7.0 | 2026-11-09 | feat(workflow): add batch workflow with policy decisions, prompts, locking and cancellation |
 | 0.8.0 | 2026-11-09 | feat(i18n): add English and German catalogs for outcomes, reasons, UI and prompts |
+| 0.9.0 | 2026-11-09 | feat(statistics): add opt-in local statistics with true medians and labelled estimates |
