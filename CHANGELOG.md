@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.6 — 2026-11-10
+
+- ci(deps): add Dependabot and daily pip-audit dependency scan
+
 ## 0.16.5 — 2026-11-10
 
 - docs: add security review, compliance checklist, desktop matrix, Windows Search guide and benchmark baseline
