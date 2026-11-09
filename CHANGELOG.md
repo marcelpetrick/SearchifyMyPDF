@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.15.0 — 2026-11-10
+
+- build(docker): add headless CLI image with smoke test and GHCR publishing workflow
+
 ## 0.14.0 — 2026-11-10
 
 - ci(release): add tag-triggered release pipeline promoting tested assets to a draft release

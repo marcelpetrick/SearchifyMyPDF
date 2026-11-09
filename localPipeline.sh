@@ -113,7 +113,13 @@ else
     skip "binary"; skip "e2e"
 fi
 
-# STAGES_DOCKER_MUTATION (added as the work lands)
+if ${DOCKER}; then
+    stage docker scripts/docker_smoke.sh
+else
+    skip docker
+fi
+
+# STAGE_MUTATION (added with the mutation baseline)
 
 printf '\n=== summary ===\n'
 printf '%s\n' "${SUMMARY[@]}"

@@ -17,3 +17,4 @@ repository root themselves.
 | `e2e_packaged.sh` | Run `tests/e2e` against the built executable inside clean, offline Ubuntu 22.04 containers (no Python, no Tesseract). |
 | `generate_inventory.py` | Generate the component inventory and collect license texts from the actual build environment (Python dists, Qt, Tesseract + linked native libraries via dpkg, language data). |
 | `prepare_release.sh` | Collect the tested binary, inventory, wheel, sdist and license into a release folder with `SHA256SUMS` and generated release notes (no rebuild). |
+| `docker_smoke.sh` | Build the CLI Docker image and smoke-test it offline on a synthetic folder (output, OCR words, unchanged original, exit code 3 for Ask). |

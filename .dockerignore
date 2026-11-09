@@ -1,0 +1,10 @@
+.git
+.venv
+.cache
+dist
+build
+reports
+htmlcov
+mutants
+tests
+*.egg-info
