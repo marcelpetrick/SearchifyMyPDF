@@ -107,3 +107,4 @@ Updated at the end of the work session; see the evidence matrix below.
 | 0.16.5 | 2026-11-10 | docs: add security review, compliance checklist, desktop matrix, Windows Search guide and benchmark baseline |
 | 0.16.6 | 2026-11-10 | ci(deps): add Dependabot and daily pip-audit dependency scan |
 | 0.16.7 | 2026-11-10 | docs(readme): document usage, pipeline, Docker and add real UI screenshots |
+| 0.16.8 | 2026-11-10 | chore(scripts): add sample corpus generator and run mutation checks on core PRs |

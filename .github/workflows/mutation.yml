@@ -1,11 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Scheduled mutation testing (mirrors ./localPipeline.sh --mutation).
+# Mutation testing (mirrors ./localPipeline.sh --mutation): weekly, on demand, and on PRs
+# that touch the mutated core modules.
 name: Mutation
 
 on:
   schedule:
     - cron: "17 3 * * 1"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/searchify_pdf/domain/**"
+      - "src/searchify_pdf/application/discovery.py"
+      - "src/searchify_pdf/application/scheduler.py"
+      - "src/searchify_pdf/storage/**"
+      - "tests/unit/**"
 
 permissions:
   contents: read

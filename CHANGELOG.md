@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.8 — 2026-11-10
+
+- chore(scripts): add sample corpus generator and run mutation checks on core PRs
+
 ## 0.16.7 — 2026-11-10
 
 - docs(readme): document usage, pipeline, Docker and add real UI screenshots

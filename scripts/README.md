@@ -23,3 +23,4 @@ repository root themselves.
 | `benchmark.py` | Reproducible sequential/fixed/auto OCR benchmark on a synthetic corpus; records platform, versions, wall time, medians, peak memory. |
 | `screenshot.py` | Capture real screenshots of the running UI (real OCR batch) into `docs/media/`. |
 | `audit_dependencies.sh` | Audit the locked runtime dependencies for known vulnerabilities with pip-audit. |
+| `generate_samples.py` | Write a synthetic manual-test corpus (nested umlaut folders, scans, digital, mixed, encrypted, signed, corrupt, naturally suffixed). |
