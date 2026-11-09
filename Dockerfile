@@ -8,7 +8,7 @@
 
 FROM ghcr.io/astral-sh/uv:0.12.18 AS uv
 
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.15-slim-bookworm AS build
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /build
 COPY pyproject.toml uv.lock README.md LICENSE ./
@@ -16,7 +16,7 @@ COPY src ./src
 RUN uv export --locked --no-dev --no-emit-project --format requirements-txt -o requirements.txt \
     && uv build --wheel --out-dir /build/dist
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="Searchify PDF" \
       org.opencontainers.image.description="Make scanned PDFs searchable (headless CLI)" \
