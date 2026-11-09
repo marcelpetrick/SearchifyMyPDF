@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Release pipeline: builds and tests the Linux executable with ./localPipeline.sh and
+# promotes exactly that tested artifact into a DRAFT GitHub release. A maintainer
+# reviews the evidence and publishes the draft.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: "Mark the draft as a prerelease"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test (localPipeline.sh)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - name: Read version and check tag
+        id: version
+        run: |
+          version="$(python3 scripts/bump_version.py --show)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && ! "${GITHUB_REF_NAME}" =~ ^v${version}(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match version ${version}" >&2
+            exit 1
+          fi
+      - name: Install system packages
+        run: scripts/install_ci_dependencies.sh
+      - name: Full local pipeline (tests, coverage, binary, packaged E2E, Docker)
+        run: ./localPipeline.sh
+      - name: Assemble release assets
+        run: scripts/prepare_release.sh "${{ steps.version.outputs.version }}" dist/release
+      - name: Upload tested release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/release/
+          if-no-files-found: error
+
+  draft-release:
+    name: Create draft release
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist/release
+      - name: Verify checksums of the tested assets
+        run: cd dist/release && sha256sum -c SHA256SUMS
+      - name: Create draft release with the tested assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build-and-test.outputs.version }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then tag="v${VERSION}-build.${GITHUB_RUN_NUMBER}"; fi
+          prerelease="--prerelease"
+          if [[ "${{ inputs.prerelease }}" == "false" ]]; then prerelease=""; fi
+          gh release create "${tag}" dist/release/* \
+            --draft ${prerelease} \
+            --target "${GITHUB_SHA}" \
+            --title "Searchify PDF ${tag}" \
+            --notes-file dist/release/RELEASE_NOTES.md
