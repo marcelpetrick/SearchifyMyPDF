@@ -6,7 +6,7 @@
 # Searchable copies are written next to each PDF below /data. Settings (optional) are
 # read from /config/searchify-pdf.settings.json.
 
-FROM ghcr.io/astral-sh/uv:0.12.18 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 FROM python:3.12-slim-bookworm AS build
 COPY --from=uv /uv /usr/local/bin/uv
