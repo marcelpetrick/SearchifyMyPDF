@@ -76,3 +76,11 @@ Updated at the end of the work session; see the evidence matrix below.
 | A18 | ❌ | |
 | A19 | ❌ | |
 | A20 | ❌ | |
+
+## Progress log (one row per commit, appended by `scripts/commit.sh`)
+
+| Version | Date | Step |
+| --- | --- | --- |
+| 0.1.0 | 2026-11-09 | chore: scaffold project with GPLv3, tooling and local pipeline |
+| 0.1.1 | 2026-11-09 | ci: run localPipeline.sh in GitHub Actions on Python 3.12 and 3.13 |
+| 0.1.2 | 2026-11-09 | chore: log every commit step in PLAN.md via commit helper |

@@ -61,7 +61,7 @@ def main(argv: list[str]) -> int:
     VERSION_FILE.write_text(PATTERN.sub(f'__version__ = "{new}"', text), encoding="utf-8")
     if args.message:
         log = CHANGELOG.read_text(encoding="utf-8")
-        entry = f"{MARKER}\n\n## {new} — {dt.date.today().isoformat()}\n\n- {args.message}\n"
+        entry = f"{MARKER}\n\n## {new} — {dt.date.today().isoformat()}\n\n- {args.message}"
         CHANGELOG.write_text(log.replace(MARKER, entry, 1), encoding="utf-8")
     print(new)
     return 0
