@@ -20,3 +20,6 @@ repository root themselves.
 | `docker_smoke.sh` | Build the CLI Docker image and smoke-test it offline on a synthetic folder (output, OCR words, unchanged original, exit code 3 for Ask). |
 | `run_mutation.sh` | Run mutmut on the core modules and enforce the mutation-score threshold (default 95 %); report in `reports/mutation.txt`. |
 | `mutation_score.py` | Compute the mutation score from `mutmut results`, excluding reviewed equivalents in `docs/mutation-equivalent.txt`. |
+| `benchmark.py` | Reproducible sequential/fixed/auto OCR benchmark on a synthetic corpus; records platform, versions, wall time, medians, peak memory. |
+| `screenshot.py` | Capture real screenshots of the running UI (real OCR batch) into `docs/media/`. |
+| `audit_dependencies.sh` | Audit the locked runtime dependencies for known vulnerabilities with pip-audit. |
