@@ -2,13 +2,13 @@
 
 [![Local Pipeline](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml)
 [![Docker](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/docker.yml)
-[![Release](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml/badge.svg)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml)
+[![Release](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/SearchifyMyPDF?sort=semver&include_prereleases)](https://github.com/marcelpetrick/SearchifyMyPDF/releases)
 [![License: GPL v3 or later](https://img.shields.io/badge/license-GPLv3%20or%20later-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776ab.svg)](https://www.python.org/)
 [![PySide6 6.12.0](https://img.shields.io/badge/PySide6-6.12.0-41cd52.svg)](https://doc.qt.io/qtforpython-6/)
 [![OCRmyPDF 17.14.1](https://img.shields.io/badge/OCRmyPDF-17.14.1-orange.svg)](https://ocrmypdf.readthedocs.io/)
-[![Coverage: 100% statements / 100% branches](https://img.shields.io/badge/coverage-100%25%20stmt%20%7C%20100%25%20branch-brightgreen.svg)](scripts/check_coverage.py)
+[![Coverage: 99.8% statements / 99.4% branches](https://img.shields.io/badge/coverage-99.8%25%20stmt%20%7C%2099.4%25%20branch-brightgreen.svg)](scripts/check_coverage.py)
 [![Mutation score ≥95%](https://img.shields.io/badge/mutation-100%25%20(min%2095%25)-brightgreen.svg)](docs/mutation-baseline.md)
 
 **Make scanned PDFs searchable.** Drop a PDF or a whole folder onto Searchify PDF and it

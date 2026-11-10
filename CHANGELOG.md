@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.21.3 — 2026-11-10
+
+- docs(readme): release badge tracks tag pushes only, coverage badge shows the measured 99.8 % / 99.4 %
+
 ## 0.21.2 — 2026-11-10
 
 - docs(release): mention the opt-in profile settings in the release notes

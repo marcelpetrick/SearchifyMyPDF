@@ -219,3 +219,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.21.0 | 2026-11-10 | feat(ocr): cross-check existing text against a fresh recognition before asking, and --check-text review (#6) |
 | 0.21.1 | 2026-11-10 | ci(native): smoke-test the existing-text cross-check and the profile settings opt-in on Windows and macOS |
 | 0.21.2 | 2026-11-10 | docs(release): mention the opt-in profile settings in the release notes |
+| 0.21.3 | 2026-11-10 | docs(readme): release badge tracks tag pushes only, coverage badge shows the measured 99.8 % / 99.4 % |
