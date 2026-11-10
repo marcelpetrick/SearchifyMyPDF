@@ -270,3 +270,35 @@ def test_gui_smoke_flag_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(ui_app, "smoke_test", lambda s, p, d: seen.append(p) or 0)
     assert run(["--gui-smoke-test", str(tmp_path)])[0] == 0
     assert seen == [[tmp_path]]
+
+
+def test_cancel_on_signals_sets_event_then_interrupts_and_restores() -> None:
+    import signal
+    import threading
+
+    before = signal.getsignal(signal.SIGTERM)
+    cancel = threading.Event()
+    out = io.StringIO()
+    with cli.cancel_on_signals(cancel, out):
+        signal.raise_signal(signal.SIGTERM)
+        assert cancel.is_set() and "SIGTERM: cancelling" in out.getvalue()
+        with pytest.raises(KeyboardInterrupt):
+            signal.raise_signal(signal.SIGINT)  # second signal: stop at once
+    assert signal.getsignal(signal.SIGTERM) is before
+
+
+def test_cancel_on_signals_is_a_noop_outside_the_main_thread() -> None:
+    import signal
+    import threading
+
+    before = signal.getsignal(signal.SIGINT)
+    seen: list[object] = []
+
+    def body() -> None:
+        with cli.cancel_on_signals(threading.Event(), io.StringIO()):
+            seen.append(signal.getsignal(signal.SIGINT))
+
+    worker = threading.Thread(target=body)
+    worker.start()
+    worker.join()
+    assert seen == [before]

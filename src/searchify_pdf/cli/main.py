@@ -14,11 +14,14 @@ Exit codes: 0 success · 1 some documents failed or were cancelled · 2 usage er
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
+import signal
 import sys
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
+from types import FrameType
 from typing import TextIO
 
 from searchify_pdf import APP_ID, __version__
@@ -197,6 +200,38 @@ def exit_code(summary: BatchSummary) -> int:
     return EXIT_OK
 
 
+CANCEL_SIGNALS = (signal.SIGINT, signal.SIGTERM)
+
+
+@contextlib.contextmanager
+def cancel_on_signals(cancel: threading.Event, stdout: TextIO) -> Iterator[None]:
+    """Map SIGINT/SIGTERM to a clean batch cancel while the block runs.
+
+    The first signal sets ``cancel`` (queued jobs are cancelled, running engine process
+    groups are terminated, staging files discarded); a second one interrupts at once.
+    Needed because engine workers run in their own sessions (Ctrl+C does not reach them)
+    and because, as PID 1 in a container, Python ignores an unhandled SIGTERM.
+    Outside the main thread signal handlers cannot be installed; then nothing changes.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def handler(signum: int, _frame: FrameType | None) -> None:
+        if cancel.is_set():
+            raise KeyboardInterrupt
+        cancel.set()
+        stdout.write(f"\n{signal.Signals(signum).name}: cancelling…\n")
+        stdout.flush()
+
+    previous = {sig: signal.signal(sig, handler) for sig in CANCEL_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, old in previous.items():
+            signal.signal(sig, old)
+
+
 def run_headless(
     settings: Settings,
     paths: Sequence[Path],
@@ -222,6 +257,7 @@ def run_headless(
             stdout.flush()
 
     decisions = TerminalDecisions(language, stdin, stdout) if interactive else None
+    cancel = cancel or threading.Event()
     runner = BatchRunner(
         settings,
         engine,
@@ -230,7 +266,8 @@ def run_headless(
         cancel=cancel,
         version=__version__,
     )
-    summary = runner.run(paths)
+    with cancel_on_signals(cancel, stdout):
+        summary = runner.run(paths)
     if settings.statistics_enabled:
         error = StatisticsRepository(app_dir).record_batch(summary, settings.ocr_languages)
         if error:

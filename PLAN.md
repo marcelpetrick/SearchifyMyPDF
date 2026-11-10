@@ -116,3 +116,4 @@ M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 | 0.16.9 | 2026-11-10 | docs(plan): record milestone status and evidence for A01-A20 |
 | 0.16.10 | 2026-11-10 | fix(ui): keep paths added during a run queued and start open events afterwards |
 | 0.16.11 | 2026-11-10 | fix(ui): record statistics according to the batch settings snapshot |
+| 0.16.12 | 2026-11-10 | fix(cli): cancel headless runs cleanly on SIGINT and SIGTERM |
