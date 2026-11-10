@@ -152,6 +152,8 @@ class MainWindow(QMainWindow):
         self.load_error = loaded.error
         self.run_overrides = run_overrides
         self.queue: list[Path] = []
+        self.batch_paths: list[Path] = []  # the paths handed to the running batch
+        self.autostart_pending = False  # an OS open event arrived during a run
         self.batch: BatchThread | None = None
         self.rows: dict[int, int] = {}
         self.total = 0
@@ -566,7 +568,9 @@ class MainWindow(QMainWindow):
         self.finished_count = 0
         self.workers = 0
         snapshot = self.run_settings()
-        self.batch = BatchThread(snapshot, list(self.queue), self.engine_factory(), self.prompter)
+        self.batch_paths = list(self.queue)
+        self.autostart_pending = False
+        self.batch = BatchThread(snapshot, self.batch_paths, self.engine_factory(), self.prompter)
         self.batch.job_event.connect(self._on_event)
         self.batch.planned.connect(self._on_planned)
         self.batch.done.connect(self._on_done)
@@ -620,11 +624,17 @@ class MainWindow(QMainWindow):
                 )
         self.last_summary = summary
         self.run_overrides = None  # later runs use the saved settings again
-        self.queue.clear()
+        # only the processed paths leave the queue; paths added during the run stay
+        done = set(self.batch_paths)
+        self.queue = [path for path in self.queue if path not in done]
+        self.batch_paths = []
         self._show_summary(summary)
         self._update_buttons()
         self._refresh_status()
         self.refresh_statistics()
+        if self.autostart_pending and self.queue:
+            self.start()
+        self.autostart_pending = False
 
     def _show_summary(self, summary: BatchSummary) -> None:
         counts = {outcome.value: summary.count(outcome) for outcome in Outcome}
@@ -636,6 +646,8 @@ class MainWindow(QMainWindow):
             for omission in summary.omissions[:20]:
                 lines.append(f"• {omission.path.name}: {self.t(f'reason.{omission.reason.value}')}")
         lines.append(self.t("summary.time", seconds=summary.wall_seconds))
+        if self.queue and not self.running:
+            lines.append(self.t("summary.queued", count=len(self.queue)))
         if summary.statistics_error:
             lines.append(self.t("summary.stats_error", error=summary.statistics_error))
         self.summary_label.setText("\n".join(lines))
@@ -980,7 +992,9 @@ class FileOpenFilter(QObject):
             path = event.file()  # type: ignore[attr-defined]
             if path:
                 self.window.add_paths([Path(path)])
-                if not self.window.running:
+                if self.window.running:
+                    self.window.autostart_pending = True  # start once the batch is done
+                else:
                     self.window.start()
             return True
         return False

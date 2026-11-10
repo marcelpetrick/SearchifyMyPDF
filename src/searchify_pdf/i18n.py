@@ -160,6 +160,10 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     },
     "summary.time": {EN: "Time: {seconds:.1f} s", DE: "Dauer: {seconds:.1f} s"},
     "summary.nothing": {EN: "No PDFs found.", DE: "Keine PDFs gefunden."},
+    "summary.queued": {
+        EN: "{count} more item(s) added during the run are queued — press Start.",
+        DE: "{count} weitere(s) Element(e) wurden während des Laufs hinzugefügt — Start drücken.",
+    },
     "summary.stats_error": {
         EN: "Statistics could not be saved: {error}",
         DE: "Statistik konnte nicht gespeichert werden: {error}",

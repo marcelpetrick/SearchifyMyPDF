@@ -537,14 +537,35 @@ def test_failed_job_tooltip_has_engine_detail(qtbot: QtBot, tmp_path: Path) -> N
     assert "fake failure" in window.table.item(0, 3).toolTip()
 
 
-def test_file_open_while_running_only_queues(qtbot: QtBot, tmp_path: Path) -> None:
+def test_file_open_while_running_starts_after_the_batch(qtbot: QtBot, tmp_path: Path) -> None:
     window = make_window(qtbot, tmp_path, FakeEngine(delay=1))
     flt = FileOpenFilter(window)
     window.add_paths([synthetic.scanned_pdf(tmp_path / "a.pdf")])
     window.start()
-    assert flt.eventFilter(window, QFileOpenEvent(str(tmp_path / "b.pdf")))
-    assert tmp_path / "b.pdf" in window.queue
+    b = synthetic.scanned_pdf(tmp_path / "b.pdf")
+    assert flt.eventFilter(window, QFileOpenEvent(str(b)))
+    assert b in window.queue and window.autostart_pending
+    qtbot.waitUntil(lambda: (tmp_path / "a_searchable.pdf").exists(), timeout=20000)
+    qtbot.waitUntil(lambda: (tmp_path / "b_searchable.pdf").exists(), timeout=20000)
     qtbot.waitUntil(lambda: not window.running, timeout=20000)
+    assert window.queue == [] and not window.autostart_pending
+
+
+def test_paths_added_during_a_run_stay_queued(qtbot: QtBot, tmp_path: Path) -> None:
+    window = make_window(qtbot, tmp_path, FakeEngine(delay=0.5))
+    a = synthetic.scanned_pdf(tmp_path / "a.pdf")
+    window.add_paths([a])
+    window.start()
+    b = synthetic.scanned_pdf(tmp_path / "b.pdf")
+    window.add_paths([b, a])  # a is already part of the running batch
+    qtbot.waitUntil(lambda: not window.running, timeout=20000)
+    assert window.queue == [b]
+    assert not (tmp_path / "b_searchable.pdf").exists()  # no surprise autostart
+    assert "1 more item(s)" in window.summary_label.text()
+    assert window.start_button.isEnabled()
+    run_and_wait(qtbot, window)
+    assert (tmp_path / "b_searchable.pdf").exists() and window.queue == []
+    assert "more item(s)" not in window.summary_label.text()
 
 
 def test_batch_thread_run_synchronously(tmp_path: Path) -> None:

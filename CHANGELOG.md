@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.10 — 2026-11-10
+
+- fix(ui): keep paths added during a run queued and start open events afterwards
+
 ## 0.16.9 — 2026-11-10
 
 - docs(plan): record milestone status and evidence for A01-A20
