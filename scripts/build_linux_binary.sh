@@ -20,7 +20,12 @@ IMAGE="searchify-pdf-builder:local"
 mkdir -p "${OUT_DIR}" "${ROOT_DIR}/.cache/tessdata"
 rm -f "${OUT_DIR}"/searchify-pdf-*
 
-docker build -q -t "${IMAGE}" -f "${ROOT_DIR}/packaging/linux/Dockerfile.build" "${ROOT_DIR}/packaging/linux" >/dev/null
+# The builder downloads from Ubuntu mirrors and GitHub; retry once on transient failures.
+build_image() {
+    docker build -q -t "${IMAGE}" -f "${ROOT_DIR}/packaging/linux/Dockerfile.build" \
+        "${ROOT_DIR}/packaging/linux" >/dev/null
+}
+build_image || { echo "builder image failed, retrying once" >&2; sleep 10; build_image; }
 docker run --rm \
     -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
     -v "${ROOT_DIR}:/src:ro" \

@@ -184,3 +184,4 @@ M2b ✅ (steps 21–29; step 30 awaits a decision) · M3 ⏳ #10 · M4 ⏳ #11.*
 | 0.17.3 | 2026-11-10 | ci(size): fail the pipeline above a 95 MB executable budget and document the size reduction |
 | 0.17.4 | 2026-11-10 | docs(plan): record M2b results and the protected-PDF decision |
 | 0.17.5 | 2026-11-10 | ci(docker): install Qt runtime libraries before running the image E2E tests |
+| 0.17.6 | 2026-11-10 | build(linux): retry flaky mirror downloads when building the builder image |

@@ -110,7 +110,7 @@ fi
 if ${PACKAGE}; then
     stage binary scripts/build_linux_binary.sh
     stage size bash -c '${0} python scripts/check_binary_size.py --budget-mb 95 \
-        "$(ls -t dist/binary/searchify-pdf-*-linux-x86_64 | head -1)"' "${RUN}"
+        "$(ls -t dist/binary/searchify-pdf-*-linux-x86_64 2>/dev/null | head -1)"' "${RUN}"
     stage e2e scripts/e2e_packaged.sh
 else
     skip "binary"; skip "size"; skip "e2e"

@@ -38,6 +38,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--top", type=int, default=15)
     args = parser.parse_args(argv)
 
+    if not args.binary.is_file():
+        print(f"FAIL: no executable at {args.binary}")
+        return 1
     from PyInstaller.archive.readers import CArchiveReader
 
     size_mb = args.binary.stat().st_size / 1e6
