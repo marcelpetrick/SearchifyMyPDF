@@ -37,4 +37,7 @@ docker run --rm --network none -v "${WORK}/data:/data" "${TAG}" /data >/dev/null
 CODE=$?
 set -e
 test "${CODE}" -eq 3   # existing copy + default 'Ask me' policy → needs a decision
+# Full scenarios: real-life corpus, /config settings, docker stop, unprivileged user.
+SEARCHIFY_E2E_DOCKER_IMAGE="${TAG}" uv run --locked --no-sync pytest tests/e2e/test_docker_image.py \
+    -m e2e -v -p no:cacheprovider --junitxml="${ROOT_DIR}/reports/junit-docker.xml"
 echo "docker image ${TAG} OK (version ${VERSION})"

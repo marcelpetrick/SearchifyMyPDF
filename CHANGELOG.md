@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.19 — 2026-11-10
+
+- test(e2e): run real-life corpus, /config settings, docker stop and non-root checks against the Docker image
+
 ## 0.16.18 — 2026-11-10
 
 - test(e2e): packaged binary converts the real-life corpus, cancels on docker stop and prompts on a terminal
