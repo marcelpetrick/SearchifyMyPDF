@@ -27,6 +27,7 @@ pytestmark = pytest.mark.e2e
 BINARY = os.environ.get("SEARCHIFY_E2E_BINARY", "")
 CLEAN_IMAGE = os.environ.get("SEARCHIFY_E2E_IMAGE", "ubuntu:22.04")
 DESKTOP_IMAGE = os.environ.get("SEARCHIFY_E2E_DESKTOP_IMAGE", "searchify-pdf-e2e-desktop:local")
+X11_IMAGE = os.environ.get("SEARCHIFY_E2E_X11_IMAGE", "searchify-pdf-e2e-x11:local")
 
 if not BINARY or not Path(BINARY).is_file() or shutil.which("docker") is None:
     pytest.skip("packaged binary or docker not available", allow_module_level=True)
@@ -241,3 +242,39 @@ def test_interactive_prompts_on_a_terminal(tmp_path: Path) -> None:
     replaced = [n for n in "abc" if (data / f"{n}_searchable.pdf").read_bytes() != b"old copy"]
     assert len(replaced) == 1
     assert contains_words(all_text(data / f"{replaced[0]}_searchable.pdf"), ["invoice"])
+
+
+LAUNCHER_SCRIPT = r"""
+set -eu
+Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp >/dev/null 2>&1 &
+export DISPLAY=:99 XDG_DATA_HOME=/tmp/share
+for _ in $(seq 50); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
+/app/searchify-pdf --install-desktop-entry
+entry="$(ls /tmp/share/applications/*.desktop)"
+desktop-file-validate "$entry"
+grep -q '^Exec=.*%F' "$entry"
+gio launch "$entry" "/data/Ordner Ä" /data/single.pdf
+for _ in $(seq 600); do
+    [ -f "/data/Ordner Ä/inner_searchable.pdf" ] && [ -f /data/single_searchable.pdf ] && break
+    sleep 0.2
+done
+xwininfo -root -tree | grep -q '"Searchify PDF"' && echo "window mapped"
+ls "/data/Ordner Ä" /data
+"""
+
+
+def test_desktop_launcher_with_dropped_files_on_x11(tmp_path: Path) -> None:
+    """The installed launcher started like a file manager does (gio launch, %F).
+
+    A real X server shows the real window, which converts the dropped folder and file.
+    A physical drag in a GNOME/KDE session stays a manual check (#7).
+    """
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    (data / "Ordner Ä").mkdir(parents=True)
+    synthetic.scanned_pdf(data / "Ordner Ä" / "inner.pdf")
+    synthetic.scanned_pdf(data / "single.pdf")
+    done = _docker(app, data, "-c", LAUNCHER_SCRIPT, image=X11_IMAGE, entry=("bash",))
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "window mapped" in done.stdout, done.stdout + done.stderr
+    assert contains_words(all_text(data / "Ordner Ä" / "inner_searchable.pdf"), ["invoice"])
+    assert contains_words(all_text(data / "single_searchable.pdf"), ["invoice"])

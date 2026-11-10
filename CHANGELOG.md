@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.21 — 2026-11-10
+
+- test(e2e): launch the installed desktop entry with dropped files on a real X server
+
 ## 0.16.20 — 2026-11-10
 
 - fix(desktop): write a launcher that desktop-file-validate accepts and lists once in menus

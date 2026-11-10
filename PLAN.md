@@ -165,3 +165,4 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | 0.16.18 | 2026-11-10 | test(e2e): packaged binary converts the real-life corpus, cancels on docker stop and prompts on a terminal |
 | 0.16.19 | 2026-11-10 | test(e2e): run real-life corpus, /config settings, docker stop and non-root checks against the Docker image |
 | 0.16.20 | 2026-11-10 | fix(desktop): write a launcher that desktop-file-validate accepts and lists once in menus |
+| 0.16.21 | 2026-11-10 | test(e2e): launch the installed desktop entry with dropped files on a real X server |

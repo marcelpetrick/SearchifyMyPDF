@@ -17,6 +17,7 @@ if [[ -z "${BINARY}" || ! -x "${BINARY}" ]]; then
     exit 1
 fi
 docker build -q -t searchify-pdf-e2e-desktop:local -f "${ROOT_DIR}/packaging/e2e/Dockerfile.desktop" "${ROOT_DIR}/packaging/e2e" >/dev/null
+docker build -q -t searchify-pdf-e2e-x11:local -f "${ROOT_DIR}/packaging/e2e/Dockerfile.x11" "${ROOT_DIR}/packaging/e2e" >/dev/null
 cd "${ROOT_DIR}"
 SEARCHIFY_E2E_BINARY="${BINARY}" uv run --locked --no-sync pytest -m e2e tests/e2e -v -p no:cacheprovider \
     --junitxml="${ROOT_DIR}/reports/junit-e2e.xml"

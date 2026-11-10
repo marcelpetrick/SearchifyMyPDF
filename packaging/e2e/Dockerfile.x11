@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
+# A minimal X11 desktop for the launcher E2E test: a real X server (Xvfb), the X/xcb
+# libraries every Linux desktop ships, GLib's `gio launch` (what file managers use to
+# start a .desktop entry with dropped files) and desktop-file-validate. No Python and no
+# Tesseract: the packaged executable must bring those itself.
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb x11-utils libglib2.0-bin desktop-file-utils \
+        libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 \
+        fonts-dejavu-core libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
+        libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 libxcb-xkb1 \
+        libx11-xcb1 \
+    && rm -rf /var/lib/apt/lists/*
