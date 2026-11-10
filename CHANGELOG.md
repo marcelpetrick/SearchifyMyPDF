@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.19.1 — 2026-11-10
+
+- ci(release): verify drafts in the publish job and public releases with a read-only token
+
 ## 0.19.0 — 2026-11-10
 
 - ci(release): publish public releases with Linux, Windows and macOS executables and verify the published assets

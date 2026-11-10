@@ -8,8 +8,9 @@
 #            LICENSE, RELEASE_NOTES.md and SHA256SUMS over all of them.
 #            Tags with a pre-release suffix (v1.2.3-alpha.1) become public pre-releases,
 #            plain tags (v1.2.3) the "latest" release.
-#   verify   downloads the published assets anonymously-equivalent via gh, checks
-#            SHA256SUMS and runs the Linux executable.
+#   verify   the publish job checks the release it created (drafts too); for public
+#            releases a separate job with a read-only token downloads every asset as a
+#            visitor would. Both: SHA256SUMS, all three platforms present, Linux binary runs.
 # A manual run (workflow_dispatch) creates a draft for rehearsals unless "publish" is set.
 name: Release
 
@@ -77,6 +78,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.release.outputs.tag }}
+      published: ${{ steps.release.outputs.published }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -116,23 +118,24 @@ jobs:
             --title "Searchify PDF ${tag}" \
             --notes-file dist/release/RELEASE_NOTES.md
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "published=${PUBLISH}" >> "$GITHUB_OUTPUT"
           gh release view "${tag}" --json url,isDraft,isPrerelease,assets \
             --jq '"\(.url) draft=\(.isDraft) prerelease=\(.isPrerelease) assets=\(.assets | length)"'
+      - name: Verify the created release (also drafts)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: scripts/verify_release.sh "${TAG}" "${RUNNER_TEMP}/verify"
 
   verify:
-    name: Verify the published release
+    name: Verify the public release (read-only token)
     needs: publish
+    if: needs.publish.outputs.published == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - name: Download every asset and check SHA256SUMS
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download every asset as a visitor would and check SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.publish.outputs.tag }}
-        run: |
-          mkdir release && cd release
-          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}"
-          ls -la
-          sha256sum -c SHA256SUMS
-          for os in linux windows macos; do ls searchify-pdf-*-"${os}"-* >/dev/null; done
-          chmod +x searchify-pdf-*-linux-x86_64
-          ./searchify-pdf-*-linux-x86_64 --version
+        run: scripts/verify_release.sh "${TAG}" "${RUNNER_TEMP}/verify"

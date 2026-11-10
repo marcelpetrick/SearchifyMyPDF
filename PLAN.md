@@ -202,3 +202,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.18.0 | 2026-11-10 | feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected |
 | 0.18.1 | 2026-11-10 | fix(ocr): keep German umlauts by passing English last, gated by a ground-truth quality test |
 | 0.19.0 | 2026-11-10 | ci(release): publish public releases with Linux, Windows and macOS executables and verify the published assets |
+| 0.19.1 | 2026-11-10 | ci(release): verify drafts in the publish job and public releases with a read-only token |

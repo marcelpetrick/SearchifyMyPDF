@@ -17,6 +17,7 @@ repository root themselves.
 | `e2e_packaged.sh` | Run `tests/e2e` against the built executable inside clean, offline Ubuntu 22.04 containers (no Python, no Tesseract). |
 | `generate_inventory.py` | Generate the component inventory and collect license texts from the actual build environment (Python dists, Qt, Tesseract + linked native libraries via dpkg, language data). |
 | `build_native_binary.sh` | Build and smoke-test the one-file executable on a Windows or macOS runner (Tesseract from Chocolatey/Homebrew, tessdata pinned, inventory, PyInstaller, then version/licenses/GUI drop/CLI OCR with the system Tesseract hidden). Used by `native.yml`. |
+| `verify_release.sh` | Download a GitHub release (drafts too, with a write token), check `SHA256SUMS`, require Linux, Windows and macOS executables and run the Linux one. Used by `release.yml`. |
 | `prepare_release.sh` | Collect the tested executables of all platforms present in `dist/binary` (Linux required; Windows/macOS from the native builds), inventories, wheel, sdist and license into a release folder with `SHA256SUMS` and generated release notes (no rebuild). |
 | `docker_smoke.sh` | Build the CLI Docker image and smoke-test it offline on a synthetic folder (output, OCR words, unchanged original, exit code 3 for Ask). |
 | `run_mutation.sh` | Run mutmut on the core modules and enforce the mutation-score threshold (default 95 %); report in `reports/mutation.txt`. |
