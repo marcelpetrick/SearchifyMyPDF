@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.5 — 2026-11-10
+
+- ci(docker): install Qt runtime libraries before running the image E2E tests
+
 ## 0.17.4 — 2026-11-10
 
 - docs(plan): record M2b results and the protected-PDF decision

@@ -33,7 +33,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Prepare test tooling
-        run: uv sync --locked
+        run: |
+          scripts/install_ci_dependencies.sh  # Qt libraries for the pytest-qt plugin
+          uv sync --locked
       - name: Build and smoke-test the image
         run: scripts/docker_smoke.sh searchify-pdf:ci
       - name: Read version
