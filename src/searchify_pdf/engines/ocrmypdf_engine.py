@@ -59,6 +59,19 @@ TERMINATE_GRACE_SECONDS = 3.0
 MAX_DETAIL_CHARS = 2000
 
 
+def recognition_order(languages: Sequence[str]) -> tuple[str, ...]:
+    """The configured languages with English last.
+
+    Tesseract tries the models in the given order. The English model has no umlauts, so
+    with ``eng+deu`` it drops them on lines it attributes to English ("für" → "fur");
+    ``deu+eng`` reads German text correctly without losing anything on English text
+    (docs/benchmarks.md "Recognition quality", gated by tests/integration/test_ocr_quality.py).
+    """
+    return tuple(lang for lang in languages if lang != "eng") + tuple(
+        lang for lang in languages if lang == "eng"
+    )
+
+
 def worker_command() -> list[str]:
     """Command prefix that starts an engine worker without relaunching the GUI."""
     if getattr(sys, "frozen", False):
@@ -163,7 +176,7 @@ class OcrmypdfEngine:
         payload = {
             "source": str(request.source),
             "output": str(request.output),
-            "languages": list(request.languages),
+            "languages": list(recognition_order(request.languages)),
             "mode": request.mode.value,
             "deskew": deskew,
             "rotate_pages": request.rotate_pages,

@@ -138,3 +138,20 @@ def test_image_unlocks_protected_pdfs_with_a_mounted_password_file(tmp_path: Pat
     with pytest.raises(pikepdf.PasswordError):
         pikepdf.open(copy)
     assert contains_words(all_text(copy, "secret"), ["Searchable", "invoice"])
+
+
+def test_image_recognition_quality(tmp_path: Path) -> None:
+    """The image's Tesseract meets the ground-truth gate (German with umlauts, real print)."""
+    from tests import quality
+
+    data = tmp_path / "data"
+    data.mkdir()
+    quality.render_pdf(data / "de.pdf", quality.GERMAN_TEXT, font="DejaVuSerif", dpi=200)
+    shutil.copy2(quality.BGBL_IMAGE_ONLY, data / "bgbl.pdf")
+    _writable(data)
+    done = _run(data, "/data")
+    assert done.returncode == 0, done.stdout + done.stderr
+    german = quality.score(quality.GERMAN_TEXT, all_text(data / "de_searchable.pdf"))
+    assert german.words >= 0.98, str(german)
+    real = quality.score(quality.bgbl_truth(), all_text(data / "bgbl_searchable.pdf"))
+    assert real.words >= 0.92 and real.chars >= 0.98, str(real)

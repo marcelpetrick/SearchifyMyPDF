@@ -5,7 +5,9 @@
 
 ## Decision
 Bundle `tessdata_fast` 4.1.0 `eng`, `deu` and `osd` (Apache-2.0), downloaded by
-`scripts/fetch_tessdata.sh` and verified by SHA-256. Default OCR languages: `eng+deu`.
+`scripts/fetch_tessdata.sh` and verified by SHA-256. Default OCR languages: `eng+deu`;
+the engine always passes English **last** to Tesseract (`deu+eng`), because the English model
+has no umlauts and drops them otherwise (0.18.1, measured in `docs/benchmarks.md`).
 UI language and OCR languages are independent settings. The settings model accepts any
 Tesseract language code; the UI offers the bundled ones. No automatic language detection
 (statistics report detected language as "not measured").

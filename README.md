@@ -126,7 +126,7 @@ scripts/commit.sh patch "fix(scope): message"   # bump version → gate → comm
 | --- | --- |
 | sync / tessdata | `uv sync --locked`; pinned, SHA-256-verified language data |
 | format / lint / types / headers | Black, Ruff, mypy `--strict`, SPDX GPL headers |
-| tests | pytest: unit + property tests, integration with **real OCR** (synthetic documents and a real-life corpus of public-domain / CC BY-SA scans 1929–1967, English and German — see `tests/fixtures/real/SOURCES.md`), UI tests offscreen (pytest-qt), fault/adversarial tests |
+| tests | pytest: unit + property tests, integration with **real OCR** (synthetic documents and a real-life corpus of public-domain / CC BY-SA scans 1929–1967, English and German — see `tests/fixtures/real/SOURCES.md`), a **recognition quality gate** against full ground truth (synthetic EN/DE incl. umlauts, real 1950 print; see [`docs/benchmarks.md`](docs/benchmarks.md#recognition-quality-plan-step-31)), UI tests offscreen (pytest-qt), fault/adversarial tests |
 | coverage | statement **and** branch coverage checked separately, minimum 95 % (target 98 %) |
 | wheel | sdist + wheel |
 | binary / size | PyInstaller one-file executable built in Ubuntu 22.04 with Tesseract built from source; size budget 95 MB (currently ≈ 91 MB, see [`docs/benchmarks.md`](docs/benchmarks.md)) |

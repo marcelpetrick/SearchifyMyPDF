@@ -13,7 +13,12 @@ import pytest
 from searchify_pdf.domain.jobs import Reason
 from searchify_pdf.engines import ocrmypdf_engine, worker
 from searchify_pdf.engines.base import EngineRequest, OcrMode
-from searchify_pdf.engines.ocrmypdf_engine import OcrmypdfEngine, kill_process_tree, worker_command
+from searchify_pdf.engines.ocrmypdf_engine import (
+    OcrmypdfEngine,
+    kill_process_tree,
+    recognition_order,
+    worker_command,
+)
 
 
 def _request(tmp_path: Path, mode: OcrMode = OcrMode.PRESERVE_TEXT, **kw: object) -> EngineRequest:
@@ -193,3 +198,15 @@ def test_tesseract_empty_version(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout="", stderr=""),
     )
     assert OcrmypdfEngine()._tesseract_info == ("unknown", ())
+
+
+def test_english_is_recognised_last(tmp_path: Path) -> None:
+    """eng before deu drops umlauts ("für" → "fur"); see test_ocr_quality.py."""
+    assert recognition_order(("eng", "deu")) == ("deu", "eng")
+    assert recognition_order(("eng", "fra", "deu")) == ("fra", "deu", "eng")
+    assert recognition_order(("deu",)) == ("deu",) and recognition_order(("eng",)) == ("eng",)
+    request = EngineRequest(
+        tmp_path / "a.pdf", tmp_path / "b.pdf", ("eng", "deu"), OcrMode.REDO_OCR
+    )
+    payload, _ = OcrmypdfEngine().build_request_json(request)
+    assert json.loads(payload)["languages"] == ["deu", "eng"]

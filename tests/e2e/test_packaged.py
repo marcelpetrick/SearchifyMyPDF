@@ -313,3 +313,23 @@ def test_protected_pdfs_with_password_file_and_restricted_opt_in(tmp_path: Path)
         assert copy.allow == original.allow and not copy.owner_password_matched
     assert {p: sha256(p) for p in originals} == originals
     assert not list(data.glob(".*"))
+
+
+def test_recognition_quality_of_the_packaged_engine(tmp_path: Path) -> None:
+    """The bundled Tesseract meets the same ground-truth gate as the development setup."""
+    from tests import quality
+
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    data.mkdir()
+    for language, text in quality.TEXTS.items():
+        for font in quality.FONTS:
+            quality.render_pdf(data / f"{language}-{font}.pdf", text, font=font, dpi=200)
+    shutil.copy2(quality.BGBL_IMAGE_ONLY, data / "bgbl.pdf")
+    done = _docker(app, data, "--cli", "--non-interactive", "/data")
+    assert done.returncode == 0, done.stdout + done.stderr
+    for language, text in quality.TEXTS.items():
+        for font in quality.FONTS:
+            result = quality.score(text, all_text(data / f"{language}-{font}_searchable.pdf"))
+            assert result.words >= 0.98, (language, font, str(result))
+    real = quality.score(quality.bgbl_truth(), all_text(data / "bgbl_searchable.pdf"))
+    assert real.words >= 0.92 and real.chars >= 0.98, str(real)

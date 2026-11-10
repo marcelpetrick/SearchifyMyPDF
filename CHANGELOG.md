@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.18.1 — 2026-11-10
+
+- fix(ocr): keep German umlauts by passing English last, gated by a ground-truth quality test
+
 ## 0.18.0 — 2026-11-10
 
 - feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected

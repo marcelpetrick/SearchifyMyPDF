@@ -40,3 +40,31 @@ Behaviour unchanged by the trimmed ICU data: German and numeric collation, root 
 for other scripts, case mapping (ß, Turkish İ), time zones and German dates are identical
 (compared with the original library). Only Qt's legacy charset decoders (e.g. Shift-JIS)
 are gone; Searchify never uses them (file names are UTF-8, text is handled by Python).
+
+## Recognition quality (PLAN step 31)
+
+Measured against full ground truth, not keywords: word accuracy = share of ground-truth
+words recognised in order, character similarity = difflib ratio (both case-insensitive,
+punctuation ignored). Gated by `tests/integration/test_ocr_quality.py` (development
+setup), `test_recognition_quality_of_the_packaged_engine` (shipped Linux executable,
+Tesseract 5.5.3) and `test_image_recognition_quality` (Docker image). Default settings
+(English + German, tessdata_fast 4.1.0).
+
+| Document | Before 0.18.1 (`eng` first) | Since 0.18.1 (`deu` first) | Gate |
+| --- | --- | --- | --- |
+| Synthetic English, 70 words (DejaVu Sans/Serif, 150/200/300 dpi) | 100 % | 100 % | ≥ 98 % words |
+| Synthetic German with ä ö ü ß, 55 words (DejaVu Sans/Serif, 150/200/300 dpi) | **92.7–100 %** ("für" → "fur", "beträgt" → "betragt") | **100 %** | ≥ 98 % words |
+| German page with scanner defects: skewed, noisy, blurred, low contrast | — | ≥ 90 % | ≥ 90 % words |
+| Real 1950 Bundesgesetzblatt page, 346 words, vs. its published text layer | 94.2 % words / 98.8 % chars | 94.2 % / 98.8 % | ≥ 92 % / ≥ 98 % |
+| Real English memos and certificate 1929–1967 (keywords) | all found | all found | all keywords |
+
+Why `deu` first: Tesseract tries the models in order and the English model has no
+umlauts, so lines it attributes to English lose them. German first changes nothing on
+English or on the real documents above. The engine now always passes English last
+(`recognition_order`), independent of how the language list is saved. With the old order
+the gate fails (verified).
+
+The earlier synthetic German fixtures avoided umlauts ("dreissig") because Pillow's built-in
+font cannot draw them, so this was not caught before; the quality documents use the
+DejaVu fonts in `tests/fixtures/fonts` (provenance in `SOURCES.md`). Old print stays
+below 100 %: ligatures, hyphenation and 1950s typefaces cause the remaining misses.

@@ -97,6 +97,15 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     with the same password and permissions; (b) owner-restricted PDFs: opt-in setting
     `process_restricted_pdfs` / `--process-restricted`, copy keeps the restrictions.
     Decrypted data only in a private temp folder; signed PDFs stay rejected.
+31. ✅ **Recognition quality gate (requested 2026-11-10):** full ground truth instead of
+    keywords — synthetic English/German pages (DejaVu fonts with ä ö ü ß, 3 resolutions,
+    4 scanner defects) and the real 1950 page vs. its published text layer; on the dev
+    setup, the packaged executable and the Docker image. Found and fixed: `eng+deu`
+    dropped umlauts (92.7 % → 100 % German words) — the engine now passes English last.
+    Results: [`docs/benchmarks.md`](docs/benchmarks.md#recognition-quality-plan-step-31).
+32. ⏳ **Public release with Linux, Windows and macOS (requested 2026-11-10):** native
+    Windows/macOS builds with smoke tests (`native.yml`), release workflow publishes a
+    public release with all three platforms and verifies the published assets.
 
 ### M3 / M4 — Windows, macOS
 Architecture keeps platform adapters separate; artifacts and native evidence are
@@ -189,3 +198,4 @@ M2b ✅ (steps 21–30) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues 
 | 0.17.7 | 2026-11-10 | ci(native): build and smoke-test Windows and macOS executables on GitHub runners |
 | 0.17.8 | 2026-11-10 | ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired) |
 | 0.18.0 | 2026-11-10 | feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected |
+| 0.18.1 | 2026-11-10 | fix(ocr): keep German umlauts by passing English last, gated by a ground-truth quality test |
