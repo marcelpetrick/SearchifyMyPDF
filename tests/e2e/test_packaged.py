@@ -14,11 +14,13 @@ import json
 import os
 import shutil
 import subprocess
+import time
+import uuid
 from pathlib import Path
 
 import pytest
 
-from tests import synthetic
+from tests import realcorpus, synthetic
 from tests.textutil import all_text, contains_words, sha256
 
 pytestmark = pytest.mark.e2e
@@ -44,11 +46,31 @@ def _docker(
     image: str = CLEAN_IMAGE,
     app_ro: bool = False,
     env: dict[str, str] | None = None,
+    stdin: str | None = None,
+    entry: tuple[str, ...] = ("/app/searchify-pdf",),
 ) -> subprocess.CompletedProcess[str]:
+    cmd = _docker_cmd(app, data, image=image, app_ro=app_ro, env=env, interactive=stdin is not None)
+    cmd += [image, *entry, *args]
+    return subprocess.run(
+        cmd, input=stdin, capture_output=True, text=True, timeout=900, check=False
+    )
+
+
+def _docker_cmd(
+    app: Path,
+    data: Path,
+    *,
+    image: str = CLEAN_IMAGE,
+    app_ro: bool = False,
+    env: dict[str, str] | None = None,
+    interactive: bool = False,
+    detached_name: str = "",
+) -> list[str]:
     cmd = [
         "docker",
         "run",
-        "--rm",
+        *(["-d", "--name", detached_name] if detached_name else ["--rm"]),
+        *(["-i"] if interactive else []),
         "--network",
         "none",
         "--user",
@@ -62,8 +84,7 @@ def _docker(
     ]
     for key, value in (env or {}).items():
         cmd += ["-e", f"{key}={value}"]
-    cmd += [image, "/app/searchify-pdf", *args]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=900, check=False)
+    return cmd
 
 
 def _corpus(data: Path) -> dict[Path, str]:
@@ -143,3 +164,80 @@ def test_gui_drop_launch_offscreen(tmp_path: Path) -> None:
     assert done.returncode == 0, done.stdout + done.stderr
     assert "gui-smoke ok" in done.stdout
     assert contains_words(all_text(data / "dropped_searchable.pdf"), ["invoice"])
+
+
+def test_real_life_corpus_offline(tmp_path: Path) -> None:
+    """Public-domain / CC scans (1929-1967, EN + DE): text found, protection respected."""
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    docs = realcorpus.copy_corpus(data)
+    originals = {p: sha256(p) for p in data.iterdir()}
+    done = _docker(app, data, "--cli", "--non-interactive", "/data")
+    assert done.returncode == 1, done.stdout + done.stderr  # the protected one fails
+    for doc in docs:
+        copy = data / doc.copy_name
+        if doc.protected:
+            assert not copy.exists()
+        elif doc.text_layer:
+            assert copy.exists()  # kept as is ("keep existing text")
+        else:
+            assert contains_words(all_text(copy), doc.words), (doc.file, all_text(copy)[:300])
+    assert "4 converted · 1 copied" in done.stdout
+    assert {p: sha256(p) for p in originals} == originals
+    assert not list(data.glob(".*"))
+
+
+def test_docker_stop_cancels_a_packaged_run_cleanly(tmp_path: Path) -> None:
+    """SIGTERM reaches the app through the one-file bootloader: clean cancel, exit 1."""
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    data.mkdir()
+    for index in range(6):
+        synthetic.scanned_pdf(data / f"scan{index}.pdf", [synthetic.ENGLISH_LINES] * 6, dpi=300)
+    originals = {p: sha256(p) for p in data.iterdir()}
+    name = f"searchify-e2e-{uuid.uuid4().hex[:8]}"
+    cmd = _docker_cmd(app, data, detached_name=name)
+    subprocess.run(
+        [*cmd, CLEAN_IMAGE, "/app/searchify-pdf", "--cli", "--jobs", "1", "/data"],
+        check=True,
+        capture_output=True,
+    )
+    try:
+        deadline = time.monotonic() + 120
+        while not list(data.glob(".*.searchify-partial")) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert list(data.glob(".*.searchify-partial")), "OCR never started"
+        subprocess.run(["docker", "stop", "-t", "30", name], check=True, capture_output=True)
+        code = subprocess.run(
+            ["docker", "wait", name], check=True, capture_output=True, text=True
+        ).stdout.strip()
+        logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True).stdout
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+    assert code == "1", logs
+    assert "SIGTERM: cancelling" in logs and "cancelled" in logs
+    assert not list(data.glob(".*")), "staging or lock files left behind"
+    assert {p: sha256(p) for p in originals} == originals
+    assert len(list(data.glob("*_searchable.pdf"))) < 6
+
+
+def test_interactive_prompts_on_a_terminal(tmp_path: Path) -> None:
+    """Existing copies → asked on a real pseudo-terminal: yes once, then skip the rest."""
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    data.mkdir()
+    for name in ("a", "b", "c"):
+        synthetic.scanned_pdf(data / f"{name}.pdf")
+        (data / f"{name}_searchable.pdf").write_bytes(b"old copy")
+    done = _docker(
+        app,
+        data,
+        "-qec",
+        "/app/searchify-pdf --cli /data",
+        "/dev/null",
+        stdin="y\ns\n",
+        entry=("script",),
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.stdout.count("[y]es / [n]o / [a]ll yes / [s]kip all / [c]ancel") == 2
+    assert "1 converted · 0 copied · 2 skipped" in done.stdout
+    replaced = [n for n in "abc" if (data / f"{n}_searchable.pdf").read_bytes() != b"old copy"]
+    assert len(replaced) == 1
+    assert contains_words(all_text(data / f"{replaced[0]}_searchable.pdf"), ["invoice"])

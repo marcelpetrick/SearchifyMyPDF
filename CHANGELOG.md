@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.18 — 2026-11-10
+
+- test(e2e): packaged binary converts the real-life corpus, cancels on docker stop and prompts on a terminal
+
 ## 0.16.17 — 2026-11-10
 
 - test(fixtures): generate scanner-defect, long and owner-restricted synthetic PDFs with OCR tests

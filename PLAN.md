@@ -162,3 +162,4 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | 0.16.15 | 2026-11-10 | docs(plan): plan more E2E coverage, real-life fixtures and a smaller executable |
 | 0.16.16 | 2026-11-10 | test(fixtures): add real-life public-domain and CC BY-SA scan corpus with workflow tests |
 | 0.16.17 | 2026-11-10 | test(fixtures): generate scanner-defect, long and owner-restricted synthetic PDFs with OCR tests |
+| 0.16.18 | 2026-11-10 | test(e2e): packaged binary converts the real-life corpus, cancels on docker stop and prompts on a terminal |
