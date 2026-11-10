@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.2 — 2026-11-10
+
+- build(linux): bundle Qt's ICU 73.2 data trimmed to the English/German UI
+
 ## 0.17.1 — 2026-11-10
 
 - build(linux): strip native libraries and drop unused codecs and Qt plugins

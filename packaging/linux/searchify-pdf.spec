@@ -71,6 +71,15 @@ UNUSED_QT_PLUGINS = (
     "imageformats/libqwebp",
 )
 a.binaries = [b for b in a.binaries if not any(u in b[0] for u in UNUSED_QT_PLUGINS)]
+# Same ICU version, data trimmed to the en/de UI (packaging/linux/build_icu_data.sh).
+ICU_DATA = "PySide6/Qt/lib/libicudata.so.73"
+trimmed_icu = os.environ.get("SEARCHIFY_ICU_DATA", "")
+if trimmed_icu:
+    a.binaries = [
+        (dest, trimmed_icu, kind) if dest == ICU_DATA else (dest, src, kind)
+        for dest, src, kind in a.binaries
+    ]
+    assert any(src == trimmed_icu for _dest, src, _kind in a.binaries), "Qt ICU data not found"
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

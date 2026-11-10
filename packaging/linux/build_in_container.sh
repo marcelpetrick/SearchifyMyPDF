@@ -27,6 +27,7 @@ uv run --no-sync python scripts/generate_inventory.py \
 
 SEARCHIFY_BINARY_NAME="${NAME}" SEARCHIFY_TESSDATA="${TESSDATA}" \
 SEARCHIFY_INVENTORY=/work/meta/components.json SEARCHIFY_LICENSES=/work/meta/licenses \
+SEARCHIFY_ICU_DATA=/opt/icu-data/libicudata.so.73 \
     uv run --no-sync pyinstaller --noconfirm --clean --log-level WARN \
     --distpath /work/dist --workpath /work/build packaging/linux/searchify-pdf.spec
 

@@ -29,6 +29,19 @@ RUN curl -fsSL -o /tmp/tesseract.tar.gz \
     && echo "${TESSERACT_VERSION}" > /stage/usr/local/share/doc/tesseract/VERSION \
     && rm -rf /stage/usr/local/share/tessdata /stage/usr/local/include /stage/usr/local/lib/pkgconfig
 
+# Trimmed ICU 73.2 data for the bundled Qt (en/de UI), see build_icu_data.sh (PLAN step 28).
+FROM ubuntu:22.04 AS icu
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl build-essential python3 unzip \
+    && rm -rf /var/lib/apt/lists/*
+COPY build_icu_data.sh icu-data-filter.json /icu/
+RUN mkdir -p /icu/src && cd /icu/src \
+    && for f in icu4c-73_2-src.tgz icu4c-73_2-data.zip; do \
+        curl -fsSL -o "$f" "https://github.com/unicode-org/icu/releases/download/release-73-2/$f"; \
+    done \
+    && /icu/build_icu_data.sh /icu/src /opt/icu-data \
+    && rm -rf /icu/src
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -45,6 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=tesseract /stage/usr/local/ /usr/local/
+COPY --from=icu /opt/icu-data/ /opt/icu-data/
 RUN ldconfig && tesseract --version
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /usr/local/bin/uv

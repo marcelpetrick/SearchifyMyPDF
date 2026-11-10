@@ -169,3 +169,4 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | 0.16.22 | 2026-11-10 | build(linux): bundle only runtime dependencies and PyInstaller into the executable |
 | 0.17.0 | 2026-11-10 | build(linux): bundle Tesseract 5.5.3 built from source without libarchive, ICU 70 and OpenMP |
 | 0.17.1 | 2026-11-10 | build(linux): strip native libraries and drop unused codecs and Qt plugins |
+| 0.17.2 | 2026-11-10 | build(linux): bundle Qt's ICU 73.2 data trimmed to the English/German UI |

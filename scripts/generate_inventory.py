@@ -129,6 +129,31 @@ def source_built_tesseract(target: Path, doc_dir: Path = SOURCE_BUILD_DOC) -> li
     ]
 
 
+TRIMMED_ICU_DIR = Path("/opt/icu-data")
+
+
+def trimmed_icu_data(target: Path, icu_dir: Path = TRIMMED_ICU_DIR) -> list[Component]:
+    """The ICU data library rebuilt for the bundled Qt (packaging/linux/build_icu_data.sh)."""
+    license_file = icu_dir / "LICENSE"
+    if not license_file.is_file():
+        return []
+    (target / "native-icu-data.txt").write_text(
+        license_file.read_text(encoding="utf-8", errors="replace"), encoding="utf-8"
+    )
+    version = (icu_dir / "VERSION").read_text(encoding="utf-8").strip()
+    return [
+        Component(
+            name="ICU data (trimmed to en/de for Qt)",
+            version=f"{version} (built from source)",
+            license="Unicode-3.0",
+            url="https://icu.unicode.org/",
+            authors="Unicode, Inc. and others",
+            kind="data",
+            license_text="licenses/native-icu-data.txt",
+        )
+    ]
+
+
 def native_components(target: Path) -> list[Component]:
     tesseract = shutil.which("tesseract")
     if tesseract is None or shutil.which("dpkg") is None:
@@ -144,7 +169,7 @@ def native_components(target: Path) -> list[Component]:
         owner = run(["dpkg", "-S", real]) or run(["dpkg", "-S", lib])
         if owner:
             packages[owner.split(":")[0].strip()] = None
-    result = source_built_tesseract(target)
+    result = source_built_tesseract(target) + trimmed_icu_data(target)
     for package in packages:
         version = run(["dpkg-query", "-W", "-f=${Version}", package]).strip()
         homepage = run(["dpkg-query", "-W", "-f=${Homepage}", package]).strip()
