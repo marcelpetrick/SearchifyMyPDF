@@ -206,3 +206,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.19.0 | 2026-11-10 | ci(release): publish public releases with Linux, Windows and macOS executables and verify the published assets |
 | 0.19.1 | 2026-11-10 | ci(release): verify drafts in the publish job and public releases with a read-only token |
 | 0.19.2 | 2026-11-10 | docs(plan): record the first public release v0.19.1 with all three platforms |
+| 0.19.3 | 2026-11-10 | build(deps): uv 0.13.7, Tesseract 5.5.4 (Linux), pinned Chocolatey Tesseract 5.5.3, markdown-it-py 4.3.0, mdit-py-plugins 0.7.0, pyinstaller-hooks-contrib 2026.10 |

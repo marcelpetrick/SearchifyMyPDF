@@ -13,3 +13,8 @@ updates:
     directory: /
     schedule: { interval: weekly }
     commit-message: { prefix: "build(docker)" }
+    ignore:
+      # The images follow the supported Python (requires-python, PySide6 and OCRmyPDF
+      # wheels); a new minor Python is adopted deliberately, not by a bot bump.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

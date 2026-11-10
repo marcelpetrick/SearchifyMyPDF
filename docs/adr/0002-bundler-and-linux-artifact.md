@@ -10,7 +10,7 @@ validated equivalent". Settings must live beside the real application file.
 ## Decision
 - **PyInstaller 6** in `--onefile` mode, spec in `packaging/linux/searchify-pdf.spec`.
 - Built inside `packaging/linux/Dockerfile.build` (**Ubuntu 22.04**, glibc 2.35 baseline).
-- Bundles `tesseract` (5.5.3, built from the pinned upstream source without libarchive/curl/OpenMP — see `packaging/linux/Dockerfile.build`; 4.1.1 from Ubuntu until 0.16.22) into `bin/`, its shared libraries, the pinned
+- Bundles `tesseract` (5.5.4, built from the pinned upstream source without libarchive/curl/OpenMP — see `packaging/linux/Dockerfile.build`; 4.1.1 from Ubuntu until 0.16.22) into `bin/`, its shared libraries, the pinned
   `tessdata_fast` eng/deu/osd data, the component inventory and license texts.
 - At startup the frozen app prepends `<bundle>/bin` to `PATH` and sets
   `TESSDATA_PREFIX`; system helpers get the original `LD_LIBRARY_PATH` back.

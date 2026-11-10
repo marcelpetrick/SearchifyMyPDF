@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.19.3 — 2026-11-10
+
+- build(deps): uv 0.13.7, Tesseract 5.5.4 (Linux), pinned Chocolatey Tesseract 5.5.3, markdown-it-py 4.3.0, mdit-py-plugins 0.7.0, pyinstaller-hooks-contrib 2026.10
+
 ## 0.19.2 — 2026-11-10
 
 - docs(plan): record the first public release v0.19.1 with all three platforms
