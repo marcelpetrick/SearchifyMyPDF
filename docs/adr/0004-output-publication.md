@@ -9,7 +9,10 @@ instances may target the same output; removable drives often lack hard links (§
 
 ## Decision
 1. Per-target lock file `.<copy>.searchify-lock` (`O_CREAT|O_EXCL`, host/pid/time).
-   Stale when the owner process is gone on this host or older than 6 h; stale locks are
+   On the same host it is stale only when the owner process is gone (or its PID was
+   reused by a later process) — a live owner is never overridden, however long its job
+   runs. Locks from another host are stale once older than the maximum job timeout
+   (24 h) plus 1 h; stale locks are
    renamed away atomically before re-creation, so two breakers cannot both win.
 2. Engine output goes to a hidden staging file in the destination directory.
 3. Validation: opens with pikepdf, same page count as the source, generator marker set.

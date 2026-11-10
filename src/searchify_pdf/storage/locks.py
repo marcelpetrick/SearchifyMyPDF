@@ -4,8 +4,11 @@
 
 Several app instances may target the same output (VISION §3.4). A lock is a file
 created with ``O_CREAT | O_EXCL`` containing the owner's host, PID and creation time.
-A lock is *stale* when its owner process no longer exists on this host or when it is
-older than ``stale_after`` seconds. Stale locks are broken by atomically renaming them
+A lock owned by a process on *this* host is stale exactly when that process is gone (or
+its PID was reused by a process started after the lock was written) — a live owner is
+never overridden, however long its job runs. Locks from another host (network shares)
+cannot be checked that way and are stale once older than ``stale_after``, which exceeds
+the longest allowed job (``MAX_TIMEOUT_SECONDS``). Stale locks are broken by atomically renaming them
 away first, so two instances cannot both "break" the lock and then both own it.
 """
 
@@ -22,7 +25,18 @@ from pathlib import Path
 
 import psutil
 
-DEFAULT_STALE_AFTER = 6 * 3600.0
+from searchify_pdf.domain.settings import MAX_TIMEOUT_SECONDS
+
+DEFAULT_STALE_AFTER = MAX_TIMEOUT_SECONDS + 3600.0
+PID_REUSE_TOLERANCE = 1.0  # seconds between process start and its first lock write
+
+
+def process_started(pid: int) -> float | None:
+    """Start time of ``pid`` (epoch seconds), or None when unknown or not permitted."""
+    try:
+        return float(psutil.Process(pid).create_time())
+    except (psutil.Error, OSError):
+        return None
 
 
 def _owner_record() -> bytes:
@@ -40,11 +54,13 @@ class FileLock:
         *,
         stale_after: float = DEFAULT_STALE_AFTER,
         pid_exists: Callable[[int], bool] = psutil.pid_exists,
+        started: Callable[[int], float | None] = process_started,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self.path = path
         self.stale_after = stale_after
         self._pid_exists = pid_exists
+        self._started = started
         self._clock = clock
         self._held = False
 
@@ -102,11 +118,18 @@ class FileLock:
                 return True
             return age > 60
         created = record.get("created")
-        if isinstance(created, int | float) and self._clock() - created > self.stale_after:
-            return True
         pid = record.get("pid")
-        same_host = record.get("host") == socket.gethostname()
-        return same_host and isinstance(pid, int) and not self._pid_exists(pid)
+        if record.get("host") == socket.gethostname() and isinstance(pid, int):
+            return not self._owner_alive(pid, created)
+        return isinstance(created, int | float) and self._clock() - created > self.stale_after
+
+    def _owner_alive(self, pid: int, created: object) -> bool:
+        if not self._pid_exists(pid):
+            return False
+        started = self._started(pid)
+        if started is None or not isinstance(created, int | float):
+            return True
+        return started <= created + PID_REUSE_TOLERANCE  # later start: PID was reused
 
     def _is_stale(self) -> bool:
         return self._record_is_stale(self._read(self.path), self.path)

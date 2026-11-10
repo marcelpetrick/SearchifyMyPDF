@@ -105,6 +105,39 @@ def test_stale_lock_old_age_is_broken(tmp_path: Path) -> None:
     assert FileLock(path, stale_after=100).acquire()
 
 
+def test_live_same_host_owner_is_never_overridden_by_age(tmp_path: Path) -> None:
+    path = tmp_path / "x.lock"
+    created = time.time() - 30 * 3600  # a very long job of a live owner
+    _write_lock(path, created=created)
+    assert not FileLock(path, stale_after=100, started=lambda pid: created - 10).acquire()
+
+
+def test_reused_pid_makes_a_same_host_lock_stale(tmp_path: Path) -> None:
+    path = tmp_path / "x.lock"
+    created = time.time() - 50
+    _write_lock(path, created=created)
+    assert not FileLock(path, started=lambda pid: created + 0.5).acquire()  # same process
+    assert not FileLock(path, started=lambda pid: None).acquire()  # start time unknown
+    assert FileLock(path, started=lambda pid: created + 5).acquire()  # PID reused later
+
+
+def test_same_host_lock_without_creation_time_follows_the_pid(tmp_path: Path) -> None:
+    path = tmp_path / "x.lock"
+    _write_lock(path, created="?")
+    assert not FileLock(path, stale_after=0).acquire()
+    assert FileLock(path, pid_exists=lambda pid: False).acquire()
+
+
+def test_process_started_and_default_threshold() -> None:
+    from searchify_pdf.domain.settings import MAX_TIMEOUT_SECONDS
+    from searchify_pdf.storage import locks
+
+    own = locks.process_started(os.getpid())
+    assert own is not None and own <= time.time()
+    assert locks.process_started(2**22 + 12345) is None
+    assert locks.DEFAULT_STALE_AFTER > MAX_TIMEOUT_SECONDS
+
+
 def test_live_lock_from_other_host_is_respected(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     _write_lock(path, host="elsewhere", pid=1)
