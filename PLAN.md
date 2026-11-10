@@ -186,3 +186,4 @@ M2b ✅ (steps 21–29; step 30 awaits a decision) · M3 ⏳ #10 · M4 ⏳ #11.*
 | 0.17.5 | 2026-11-10 | ci(docker): install Qt runtime libraries before running the image E2E tests |
 | 0.17.6 | 2026-11-10 | build(linux): retry flaky mirror downloads when building the builder image |
 | 0.17.7 | 2026-11-10 | ci(native): build and smoke-test Windows and macOS executables on GitHub runners |
+| 0.17.8 | 2026-11-10 | ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired) |

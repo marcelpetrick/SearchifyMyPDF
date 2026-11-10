@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.8 — 2026-11-10
+
+- ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired)
+
 ## 0.17.7 — 2026-11-10
 
 - ci(native): build and smoke-test Windows and macOS executables on GitHub runners

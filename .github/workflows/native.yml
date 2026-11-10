@@ -31,7 +31,7 @@ jobs:
             os: windows-2022
             artifact: searchify-pdf-windows-x86_64
           - name: macOS arm64 (Apple silicon)
-            os: macos-14
+            os: macos-15
             artifact: searchify-pdf-macos-arm64
     defaults:
       run:
