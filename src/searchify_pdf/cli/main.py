@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import getpass
 import os
 import signal
 import sys
@@ -25,7 +26,7 @@ from types import FrameType
 from typing import TextIO
 
 from searchify_pdf import APP_ID, __version__
-from searchify_pdf.application.workflow import BatchRunner, Choice, Decision
+from searchify_pdf.application.workflow import BatchRunner, Choice, Decision, PasswordAnswer
 from searchify_pdf.domain.jobs import BatchSummary, JobEvent, JobState, Outcome
 from searchify_pdf.domain.settings import (
     MAX_FIXED_WORKERS,
@@ -86,6 +87,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--jobs", help=f"documents at once: auto, 1 (sequential) or 2..{MAX_FIXED_WORKERS}"
     )
     parser.add_argument("--suffix", help="name ending for copies (default _searchable)")
+    parser.add_argument(
+        "--password-file",
+        type=Path,
+        help="file with one password per line, tried on password-protected PDFs "
+        "(the copy keeps the password); avoids prompts, e.g. in Docker",
+    )
+    parser.add_argument(
+        "--process-restricted",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="also process PDFs with usage restrictions (owner password); the copy keeps them",
+    )
     parser.add_argument("--deskew", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--rotate-pages", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument(
@@ -120,6 +133,8 @@ def apply_overrides(settings: Settings, args: argparse.Namespace) -> Settings:
         changes["deskew"] = args.deskew
     if args.rotate_pages is not None:
         changes["rotate_pages"] = args.rotate_pages
+    if args.process_restricted is not None:
+        changes["process_restricted_pdfs"] = args.process_restricted
     if args.ui_language:
         changes["ui_language"] = UiLanguage(args.ui_language)
     if args.jobs:
@@ -135,6 +150,12 @@ def apply_overrides(settings: Settings, args: argparse.Namespace) -> Settings:
             changes["worker_mode"] = WorkerMode.FIXED
             changes["fixed_workers"] = count
     return settings.with_changes(**changes) if changes else settings
+
+
+def read_password_file(path: Path) -> tuple[str, ...]:
+    """One password per line; only the line break is removed, empty lines are ignored."""
+    text = path.read_text(encoding="utf-8")
+    return tuple(line for line in text.splitlines() if line)
 
 
 class TerminalDecisions:
@@ -163,6 +184,29 @@ class TerminalDecisions:
 
     def existing_output(self, source: Path, destination: Path) -> Decision | None:
         return self._ask(tr("ask.output.text", self.language, name=destination.name))
+
+    def _read_secret(self, prompt: str) -> str:
+        """Hidden input on a real terminal; plain line input otherwise (EOFError on end)."""
+        if self.stdin.isatty():
+            return getpass.getpass(prompt, stream=self.stdout)
+        self.stdout.write(prompt)
+        self.stdout.flush()
+        line = self.stdin.readline()
+        if line == "":
+            raise EOFError
+        return line.rstrip("\r\n")
+
+    def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
+        key = "ask.password.retry" if retry else "ask.password.text"
+        self.stdout.write(tr(key, self.language, name=source.name) + "\n")
+        try:
+            secret = self._read_secret(tr("ask.password.prompt", self.language))
+        except EOFError:
+            self.stdout.write("\n")
+            return PasswordAnswer(Choice.CANCEL)
+        if secret == "":
+            return PasswordAnswer(Choice.NO)
+        return PasswordAnswer(Choice.YES, secret)
 
     def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
         return self._ask(
@@ -242,6 +286,7 @@ def run_headless(
     stdin: TextIO,
     stdout: TextIO,
     cancel: threading.Event | None = None,
+    passwords: Sequence[str] = (),
 ) -> int:
     language = settings.ui_language
 
@@ -265,6 +310,7 @@ def run_headless(
         on_event=on_event,
         cancel=cancel,
         version=__version__,
+        passwords=passwords,
     )
     with cancel_on_signals(cancel, stdout):
         summary = runner.run(paths)
@@ -350,6 +396,13 @@ def main(
     if not args.paths:
         parser.print_help(stdout)
         return EXIT_USAGE
+    passwords: tuple[str, ...] = ()
+    if args.password_file is not None:
+        try:
+            passwords = read_password_file(args.password_file)
+        except (OSError, UnicodeDecodeError) as exc:
+            sys.stderr.write(f"{APP_ID}: cannot read --password-file: {exc}\n")
+            return EXIT_USAGE
     interactive = not args.non_interactive and stdin.isatty()
     return run_headless(
         settings,
@@ -359,4 +412,5 @@ def main(
         app_dir=app_dir,
         stdin=stdin,
         stdout=stdout,
+        passwords=passwords,
     )

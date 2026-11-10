@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -41,7 +43,7 @@ from PySide6.QtWidgets import (
 
 from searchify_pdf import APP_NAME, __version__
 from searchify_pdf.application.scheduler import auto_documents, system_resources
-from searchify_pdf.application.workflow import Choice, Decision
+from searchify_pdf.application.workflow import Choice, Decision, PasswordAnswer
 from searchify_pdf.domain.jobs import BatchSummary, JobEvent, JobState, Outcome
 from searchify_pdf.domain.settings import (
     MAX_FIXED_WORKERS,
@@ -160,7 +162,9 @@ class MainWindow(QMainWindow):
         self.finished_count = 0
         self.workers = 0
         self.last_summary: BatchSummary | None = None
-        self.prompter: Callable[[str, dict[str, object]], Decision] = self._prompt_dialog
+        self.prompter: Callable[[str, dict[str, object]], Decision | PasswordAnswer] = (
+            self._prompt_dialog
+        )
         self.message: Callable[..., QMessageBox.StandardButton] = self._message_box
         self.file_picker: Callable[[], list[str]] = self._pick_files
         self.folder_picker: Callable[[], str] = self._pick_folder
@@ -314,6 +318,9 @@ class MainWindow(QMainWindow):
         files_form.addRow(self.suffix_label, self.suffix_edit)
         self.suffix_example = named(QLabel(), "hint")
         files_form.addRow("", self.suffix_example)
+        self.restricted_box = named(QCheckBox(), "restricted")
+        self.restricted_box.toggled.connect(self._form_changed)
+        files_form.addRow("", self.restricted_box)
         outer.addWidget(self.group_files)
 
         self.group_performance = QGroupBox()
@@ -465,6 +472,7 @@ class MainWindow(QMainWindow):
             value = self.output_policy_combo.itemData(i)
             self.output_policy_combo.setItemText(i, t(f"policy.output.{value}"))
         self.suffix_label.setText(t("settings.suffix"))
+        self.restricted_box.setText(t("settings.restricted"))
         self.workers_label.setText(t("settings.workers"))
         for i in range(self.worker_combo.count()):
             self.worker_combo.setItemText(i, t(f"workers.{self.worker_combo.itemData(i)}"))
@@ -689,7 +697,47 @@ class MainWindow(QMainWindow):
         )
 
     # ------------------------------------------------------------------ prompts
-    def _prompt_dialog(self, kind: str, payload: dict[str, object]) -> Decision:  # pragma: no cover
+    def _password_dialog(self, payload: dict[str, object]) -> PasswordAnswer:  # pragma: no cover
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.t("ask.password.title"))
+        layout = QVBoxLayout(dialog)
+        name = Path(str(payload["source"])).name
+        key = "ask.password.retry" if payload.get("retry") else "ask.password.text"
+        label = QLabel(self.t(key, name=name))
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        field = QLineEdit()
+        field.setEchoMode(QLineEdit.EchoMode.Password)
+        field.setAccessibleName(self.t("ask.password.title"))
+        layout.addWidget(field)
+        buttons = QDialogButtonBox()
+        unlock = buttons.addButton(
+            self.t("ask.password.ok"), QDialogButtonBox.ButtonRole.AcceptRole
+        )
+        skip = buttons.addButton(self.t("ask.no_skip"), QDialogButtonBox.ButtonRole.ActionRole)
+        stop = buttons.addButton(self.t("ask.cancel_all"), QDialogButtonBox.ButtonRole.RejectRole)
+        layout.addWidget(buttons)
+        chosen = [Choice.CANCEL]
+
+        def choose(choice: Choice) -> None:
+            chosen[0] = choice
+            dialog.accept()
+
+        unlock.clicked.connect(lambda: choose(Choice.YES))
+        skip.clicked.connect(lambda: choose(Choice.NO))
+        stop.clicked.connect(lambda: choose(Choice.CANCEL))
+        unlock.setDefault(True)
+        field.setFocus()
+        dialog.exec()
+        if chosen[0] is Choice.YES:
+            return PasswordAnswer(Choice.YES, field.text())
+        return PasswordAnswer(chosen[0])
+
+    def _prompt_dialog(
+        self, kind: str, payload: dict[str, object]
+    ) -> Decision | PasswordAnswer:  # pragma: no cover
+        if kind == "password":
+            return self._password_dialog(payload)
         box = QMessageBox(self)
         apply_all = QCheckBox(self.t("ask.apply_all"))
         box.setCheckBox(apply_all)
@@ -741,6 +789,7 @@ class MainWindow(QMainWindow):
                 self.output_policy_combo.findData(settings.existing_output_policy.value)
             )
             self.suffix_edit.setText(settings.output_suffix)
+            self.restricted_box.setChecked(settings.process_restricted_pdfs)
             self.worker_combo.setCurrentIndex(
                 self.worker_combo.findData(settings.worker_mode.value)
             )
@@ -768,6 +817,7 @@ class MainWindow(QMainWindow):
             existing_text_policy=text_policy,
             existing_output_policy=ExistingOutputPolicy(self.output_policy_combo.currentData()),
             output_suffix=self.suffix_edit.text(),
+            process_restricted_pdfs=self.restricted_box.isChecked(),
             worker_mode=WorkerMode(self.worker_combo.currentData()),
             fixed_workers=self.worker_spin.value(),
             theme=Theme(self.theme_combo.currentData()),

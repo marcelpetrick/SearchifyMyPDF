@@ -98,9 +98,9 @@ def discard(staging: Path) -> None:
         staging.unlink()
 
 
-def validate_output(staging: Path, expected_pages: int) -> None:
+def validate_output(staging: Path, expected_pages: int, password: str = "") -> None:
     try:
-        pages = count_pages(staging)
+        pages = count_pages(staging, password)
     except Exception as exc:  # any parser failure means the output is unusable
         raise PublishError(Reason.VALIDATION_FAILED, str(exc)) from exc
     if pages != expected_pages:

@@ -278,3 +278,38 @@ def test_desktop_launcher_with_dropped_files_on_x11(tmp_path: Path) -> None:
     assert "window mapped" in done.stdout, done.stdout + done.stderr
     assert contains_words(all_text(data / "Ordner Ä" / "inner_searchable.pdf"), ["invoice"])
     assert contains_words(all_text(data / "single_searchable.pdf"), ["invoice"])
+
+
+def test_protected_pdfs_with_password_file_and_restricted_opt_in(tmp_path: Path) -> None:
+    """ADR 0011 offline: the copies are searchable and protected like their originals."""
+    import pikepdf
+
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    data.mkdir()
+    synthetic.encrypted_pdf(data / "Statement.pdf")
+    ndl = next(d for d in realcorpus.documents() if d.protected)
+    shutil.copy2(ndl.path, data / ndl.file)
+    originals = {p: sha256(p) for p in data.iterdir()}
+    (app / "passwords.txt").write_text("wrong\nsecret\n", encoding="utf-8")
+    done = _docker(
+        app,
+        data,
+        "--cli",
+        "--non-interactive",
+        "--password-file",
+        "/app/passwords.txt",
+        "--process-restricted",
+        "/data",
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "2 converted" in done.stdout and "secret" not in done.stdout
+    statement = data / "Statement_searchable.pdf"
+    with pytest.raises(pikepdf.PasswordError):
+        pikepdf.open(statement)
+    assert contains_words(all_text(statement, "secret"), ["Searchable", "invoice"])
+    restricted = data / ndl.copy_name
+    assert contains_words(all_text(restricted), ndl.words)
+    with pikepdf.open(ndl.path) as original, pikepdf.open(restricted) as copy:
+        assert copy.allow == original.allow and not copy.owner_password_matched
+    assert {p: sha256(p) for p in originals} == originals
+    assert not list(data.glob(".*"))

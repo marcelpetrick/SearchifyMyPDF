@@ -48,12 +48,13 @@ def test_empty_info_is_not_all_text() -> None:
 def test_encrypted_with_user_password(tmp_path: Path) -> None:
     with pytest.raises(PdfInspectionError) as info:
         inspect_pdf(synthetic.encrypted_pdf(tmp_path / "e.pdf"))
-    assert info.value.reason is Reason.ENCRYPTED
+    assert info.value.reason is Reason.PASSWORD_REQUIRED
 
 
 def test_encrypted_owner_only_is_flagged(tmp_path: Path) -> None:
     info = inspect_pdf(synthetic.encrypted_pdf(tmp_path / "e.pdf", user_password=""))
-    assert info.encrypted
+    assert info.encrypted and info.protection is not None and info.protection.restricted_only
+    assert info.pages_with_text == (False,)
 
 
 def test_signed(tmp_path: Path) -> None:
@@ -117,7 +118,7 @@ def test_unreadable(tmp_path: Path) -> None:
 def test_pdfium_failure_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = synthetic.scanned_pdf(tmp_path / "s.pdf")
 
-    def boom(_: Path) -> tuple[bool, ...]:
+    def boom(_: Path, _password: str = "") -> tuple[bool, ...]:
         raise pdf_inspect.pypdfium2.PdfiumError("bad")
 
     monkeypatch.setattr(pdf_inspect, "page_text_flags", boom)

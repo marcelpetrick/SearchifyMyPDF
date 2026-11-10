@@ -190,6 +190,52 @@ def test_ask_prompt_and_cancel(qtbot: QtBot, tmp_path: Path) -> None:
     assert (tmp_path / "a_searchable.pdf").read_bytes() != b"old"
 
 
+def test_password_prompt_unlocks_and_restricted_setting(qtbot: QtBot, tmp_path: Path) -> None:
+    """ADR 0011 in the window: password asked once, restricted PDFs follow the setting."""
+    from searchify_pdf.application.workflow import PasswordAnswer
+
+    statement = synthetic.encrypted_pdf(tmp_path / "statement.pdf")
+    restricted = synthetic.restricted_pdf(tmp_path / "restricted.pdf")
+    window = make_window(qtbot, tmp_path)
+    asked: list[tuple[str, object]] = []
+
+    def prompter(kind: str, payload: dict[str, object]) -> Decision | PasswordAnswer:
+        asked.append((kind, payload.get("retry")))
+        if kind == "password":
+            return PasswordAnswer(Choice.YES, "secret")
+        return Decision(Choice.CANCEL)
+
+    window.prompter = prompter
+    assert not window.restricted_box.isChecked()
+    window.restricted_box.setChecked(True)
+    assert window.form_settings().process_restricted_pdfs and window.dirty
+    assert window.save_settings()
+    window.add_paths([statement, restricted])
+    run_and_wait(qtbot, window)
+    assert asked == [("password", False)]
+    assert window.last_summary is not None
+    assert window.last_summary.count(Outcome.CONVERTED) == 2
+    assert window.restricted_box.text().startswith("Also process PDFs")
+
+
+def test_gui_decisions_ignore_mismatched_answers() -> None:
+    import threading
+
+    from searchify_pdf.application.workflow import PasswordAnswer
+    from searchify_pdf.ui.batch_thread import GuiDecisions, _PromptBridge
+
+    answers: list[Decision | PasswordAnswer] = [
+        PasswordAnswer(Choice.YES, "x"),
+        Decision(Choice.YES),
+    ]
+    bridge = _PromptBridge(lambda kind, payload: answers.pop(0))
+    bridge.request.connect(bridge.handle)
+    decisions = GuiDecisions(bridge, threading.Event())
+    assert decisions.existing_output(Path("a"), Path("b")) == Decision(Choice.CANCEL)
+    assert decisions.password(Path("a"), False) == PasswordAnswer(Choice.CANCEL)
+    assert bridge.answer == Decision(Choice.CANCEL)  # no password kept after answering
+
+
 def test_cancel_running_batch(qtbot: QtBot, tmp_path: Path) -> None:
     sources = [synthetic.scanned_pdf(tmp_path / f"{i}.pdf") for i in range(3)]
     window = make_window(qtbot, tmp_path, FakeEngine(delay=10))

@@ -40,6 +40,9 @@ class Reason(enum.StrEnum):
     GENERATED_COPY = "generated_copy"
     LOOKS_GENERATED = "looks_generated"
     ENCRYPTED = "encrypted"
+    PASSWORD_REQUIRED = "password_required"  # noqa: S105 - reason code, not a secret
+    WRONG_PASSWORD = "wrong_password"  # noqa: S105 - reason code, not a secret
+    RESTRICTED = "restricted"
     SIGNED = "signed"
     INVALID_PDF = "invalid_pdf"
     UNREADABLE = "unreadable"

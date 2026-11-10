@@ -6,6 +6,10 @@ The workflow is UI-agnostic. It is driven from a background thread by the GUI an
 directly by the CLI. Policy decisions (and therefore prompts) happen one at a time in
 the driving thread, while up to ``documents`` conversions run in worker threads, each
 delegating OCR to an isolated engine process.
+
+Protected PDFs (ADR 0011): a password is asked for (or taken from the passwords the
+batch already knows), the source is decrypted into a private temporary folder for the
+engine, and the validated copy is encrypted again like the source before publishing.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import shutil
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -39,6 +44,8 @@ from searchify_pdf.engines.pdf_inspect import (
     PdfInfo,
     PdfInspectionError,
     add_marker,
+    decrypt_copy,
+    encrypt_like,
     has_marker,
     inspect_pdf,
 )
@@ -67,12 +74,27 @@ class Decision:
     apply_to_batch: bool = False
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class PasswordAnswer:
+    """YES with ``password`` to try it, NO to skip the document, CANCEL to stop the batch."""
+
+    choice: Choice
+    password: str = dataclasses.field(default="", repr=False)
+
+
+MAX_PASSWORD_ATTEMPTS = 3
+
+
 class DecisionProvider(Protocol):
     """Answers "Ask me" policies. ``None`` means no interactive answer is possible."""
 
     def existing_output(self, source: Path, destination: Path) -> Decision | None: ...
 
     def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None: ...
+
+    def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
+        """Ask for the password of ``source``; ``retry`` after a wrong one."""
+        ...
 
 
 class NonInteractiveDecisions:
@@ -82,6 +104,9 @@ class NonInteractiveDecisions:
         return None
 
     def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
+        return None
+
+    def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
         return None
 
 
@@ -112,6 +137,7 @@ class BatchRunner:
         version: str = "0",
         clock: Callable[[], float] = time.monotonic,
         resources: Callable[[], tuple[int, int]] = system_resources,
+        passwords: Sequence[str] = (),
     ) -> None:
         self.settings = settings  # immutable snapshot for this batch
         self.engine = engine
@@ -124,6 +150,9 @@ class BatchRunner:
         self.plan: WorkerPlan | None = None
         self._batch_output: Choice | None = None
         self._batch_text: Choice | None = None
+        # Passwords given up front or entered during this batch, tried before asking
+        # again (a folder of statements usually shares one). Memory only, never stored.
+        self._passwords: list[str] = [p for p in dict.fromkeys(passwords) if p]
 
     # -- public -------------------------------------------------------------------------
 
@@ -184,15 +213,19 @@ class BatchRunner:
         problem = destination_problem(candidate.source, candidate.destination)
         if problem is not None:
             return self._finish(job_id, candidate, Outcome.FAILED, problem)
-        try:
-            info = inspect_pdf(candidate.source)
-        except PdfInspectionError as exc:
-            return self._finish(job_id, candidate, Outcome.FAILED, exc.reason, exc.detail)
+        info = self._inspect(job_id, candidate)
+        if isinstance(info, JobResult):
+            return info
         pages = PageCounts(inspected=info.page_count)
-        if info.encrypted:
-            return self._finish(job_id, candidate, Outcome.FAILED, Reason.ENCRYPTED, pages=pages)
         if info.signed:
             return self._finish(job_id, candidate, Outcome.FAILED, Reason.SIGNED, pages=pages)
+        protection = info.protection
+        if (
+            protection is not None
+            and protection.restricted_only
+            and not self.settings.process_restricted_pdfs
+        ):
+            return self._finish(job_id, candidate, Outcome.FAILED, Reason.RESTRICTED, pages=pages)
         if info.generated_marker:
             return self._finish(job_id, candidate, Outcome.SKIPPED, Reason.GENERATED_COPY)
 
@@ -226,6 +259,49 @@ class BatchRunner:
                 mode = None
         notes = (Reason.LOOKS_GENERATED,) if candidate.looks_generated else ()
         return _Plan(job_id, candidate, info, overwrite, mode, notes, self.clock())
+
+    def _inspect(self, job_id: int, candidate: Candidate) -> PdfInfo | JobResult:
+        """Inspect the source, unlocking it with a known or asked-for password if needed."""
+
+        def failed(error: PdfInspectionError) -> JobResult:
+            return self._finish(job_id, candidate, Outcome.FAILED, error.reason, error.detail)
+
+        def attempt(password: str = "") -> PdfInfo | PdfInspectionError:
+            try:
+                return inspect_pdf(candidate.source, password)
+            except PdfInspectionError as error:
+                return error
+
+        locked = {Reason.PASSWORD_REQUIRED, Reason.WRONG_PASSWORD}
+        result = attempt()
+        if isinstance(result, PdfInfo):
+            return result
+        if result.reason is not Reason.PASSWORD_REQUIRED:
+            return failed(result)
+        for password in self._passwords:
+            result = attempt(password)
+            if isinstance(result, PdfInfo):
+                return result
+            if result.reason not in locked:
+                return failed(result)
+        retry = False
+        for _attempt in range(MAX_PASSWORD_ATTEMPTS):
+            answer = self.decisions.password(candidate.source, retry)
+            if answer is None:
+                return self._finish(job_id, candidate, Outcome.FAILED, Reason.PASSWORD_REQUIRED)
+            if answer.choice is Choice.CANCEL:
+                self.cancel.set()
+                return self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
+            if answer.choice is Choice.NO:
+                return self._finish(job_id, candidate, Outcome.SKIPPED, Reason.USER_SKIPPED)
+            result = attempt(answer.password)
+            if isinstance(result, PdfInfo):
+                self._passwords.append(answer.password)
+                return result
+            if result.reason not in locked:
+                return failed(result)
+            retry = True
+        return self._finish(job_id, candidate, Outcome.FAILED, Reason.WRONG_PASSWORD)
 
     def _output_choice(self, candidate: Candidate) -> Choice | None:
         policy = self.settings.existing_output_policy
@@ -300,13 +376,21 @@ class BatchRunner:
         remove_stale_staging(candidate.destination)
         staging = new_staging_path(candidate.destination)
         engine_notes: tuple[Reason, ...] = ()
+        protection = info.protection
+        # Decrypted content never goes beside the original: protected documents are
+        # unlocked into a private (0700) temporary folder that is always removed.
+        workdir = Path(tempfile.mkdtemp(prefix="searchify-")) if protection else None
         try:
+            engine_source, engine_output = candidate.source, staging
+            if protection is not None and workdir is not None:
+                engine_source, engine_output = workdir / "source.pdf", workdir / "copy.pdf"
+                decrypt_copy(candidate.source, protection.password, engine_source)
             if plan.mode is None:
-                shutil.copyfile(candidate.source, staging)
+                shutil.copyfile(engine_source, engine_output)
             else:
                 request = EngineRequest(
-                    candidate.source,
-                    staging,
+                    engine_source,
+                    engine_output,
                     self.settings.ocr_languages,
                     plan.mode,
                     deskew=self.settings.deskew,
@@ -327,8 +411,11 @@ class BatchRunner:
             if self.cancel.is_set():
                 return done(Outcome.CANCELLED, Reason.CANCELLED, notes=engine_notes)
             self._emit(plan.job_id, candidate.source, JobState.VALIDATING)
-            add_marker(staging, self.version)
-            validate_output(staging, info.page_count)
+            add_marker(engine_output, self.version)
+            if protection is not None:
+                validate_output(engine_output, info.page_count)
+                encrypt_like(engine_output, staging, protection)
+            validate_output(staging, info.page_count, protection.password if protection else "")
             self._emit(plan.job_id, candidate.source, JobState.PUBLISHING)
             publish(staging, candidate.destination, overwrite=plan.overwrite)
         except PublishError as exc:
@@ -340,6 +427,8 @@ class BatchRunner:
             return done(Outcome.FAILED, Reason.VALIDATION_FAILED, str(exc), notes=engine_notes)
         finally:
             discard(staging)
+            if workdir is not None:
+                shutil.rmtree(workdir, ignore_errors=True)
             lock.release()
         if plan.mode is None:
             return done(Outcome.PRESERVED, Reason.ALL_PAGES_HAVE_TEXT, pages=pages)

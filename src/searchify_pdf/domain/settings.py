@@ -83,6 +83,9 @@ class Settings:
     theme: Theme = Theme.SYSTEM
     ui_language: UiLanguage = UiLanguage.ENGLISH
     timeout_seconds: int = 1800
+    # Owner-restricted PDFs (open without a password, but forbid e.g. copying text) are
+    # rejected unless enabled; the copy keeps the same restrictions (ADR 0011).
+    process_restricted_pdfs: bool = False
 
     def __post_init__(self) -> None:
         validate(self)
@@ -119,6 +122,7 @@ class Settings:
             "theme": self.theme.value,
             "ui_language": self.ui_language.value,
             "timeout_seconds": self.timeout_seconds,
+            "process_restricted_pdfs": self.process_restricted_pdfs,
         }
 
 
@@ -141,7 +145,12 @@ def validate(settings: Settings) -> None:
     _check_enum(settings.worker_mode, WorkerMode)
     _check_enum(settings.theme, Theme)
     _check_enum(settings.ui_language, UiLanguage)
-    for flag in (settings.deskew, settings.rotate_pages, settings.statistics_enabled):
+    for flag in (
+        settings.deskew,
+        settings.rotate_pages,
+        settings.statistics_enabled,
+        settings.process_restricted_pdfs,
+    ):
         if not isinstance(flag, bool):
             raise SettingsError("flag_invalid", repr(flag))
     if (

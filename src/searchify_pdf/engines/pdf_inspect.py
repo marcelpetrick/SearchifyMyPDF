@@ -4,11 +4,18 @@
 
 Sources are only ever opened for reading. pdfium is not thread-safe, so every
 pypdfium2 call is serialized through a module-level lock.
+
+Protected PDFs (ADR 0011): a PDF that needs a password to open raises
+``password_required`` (no password given) or ``wrong_password``. A PDF that opens
+without a password but is encrypted carries owner restrictions. Either way the result
+describes the protection so the copy can be encrypted the same way again
+(:func:`decrypt_copy`, :func:`encrypt_like`). Passwords are only held in memory.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import secrets
 import threading
 from pathlib import Path
 
@@ -30,12 +37,38 @@ class PdfInspectionError(Exception):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Protection:
+    """How a source PDF is encrypted; enough to protect its copy the same way.
+
+    ``password`` is the one that opened it (``""`` for owner-restricted PDFs that open
+    without one). ``owner`` is True when that password is the owner password, i.e. it
+    grants full rights. ``permissions`` are the restrictions recorded in the source.
+    """
+
+    password: str
+    owner: bool
+    permissions: pikepdf.Permissions = dataclasses.field(repr=False)
+
+    @property
+    def restricted_only(self) -> bool:
+        """Opens without a password but restricts what readers may do (owner password)."""
+        return self.password == "" and not self.owner
+
+    def __repr__(self) -> str:  # never show the password in logs or test output
+        return f"Protection(password={'***' if self.password else ''!r}, owner={self.owner})"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class PdfInfo:
     page_count: int
     pages_with_text: tuple[bool, ...]
-    encrypted: bool = False
+    protection: Protection | None = None
     signed: bool = False
     generated_marker: bool = False
+
+    @property
+    def encrypted(self) -> bool:
+        return self.protection is not None
 
     @property
     def text_page_count(self) -> int:
@@ -81,6 +114,11 @@ def _is_signed(pdf: pikepdf.Pdf) -> bool:
     return False
 
 
+def _password_error(password: str, exc: Exception) -> PdfInspectionError:
+    reason = Reason.WRONG_PASSWORD if password else Reason.PASSWORD_REQUIRED
+    return PdfInspectionError(reason, str(exc))
+
+
 def has_marker(path: Path) -> bool:
     """True when the PDF carries the Searchify output marker (cheap metadata check)."""
     try:
@@ -90,9 +128,9 @@ def has_marker(path: Path) -> bool:
         return False
 
 
-def page_text_flags(path: Path) -> tuple[bool, ...]:
+def page_text_flags(path: Path, password: str = "") -> tuple[bool, ...]:
     with _PDFIUM_LOCK:
-        doc = pypdfium2.PdfDocument(str(path))
+        doc = pypdfium2.PdfDocument(str(path), password=password or None)
         try:
             flags = []
             for index in range(len(doc)):
@@ -107,35 +145,61 @@ def page_text_flags(path: Path) -> tuple[bool, ...]:
             doc.close()
 
 
-def inspect_pdf(path: Path) -> PdfInfo:
-    """Inspect ``path``; raise :class:`PdfInspectionError` for unusable inputs."""
+def inspect_pdf(path: Path, password: str = "") -> PdfInfo:
+    """Inspect ``path``; raise :class:`PdfInspectionError` for unusable inputs.
+
+    ``password`` opens password-protected PDFs; without it they raise
+    ``password_required``, with a wrong one ``wrong_password``.
+    """
     try:
-        with pikepdf.open(path) as pdf:
-            encrypted = bool(pdf.is_encrypted)
+        with pikepdf.open(path, password=password) as pdf:
+            protection = None
+            if pdf.is_encrypted:
+                protection = Protection(password, bool(pdf.owner_password_matched), pdf.allow)
             signed = _is_signed(pdf)
             marker = MARKER_KEY in pdf.docinfo
             page_count = len(pdf.pages)
     except pikepdf.PasswordError as exc:
-        raise PdfInspectionError(Reason.ENCRYPTED, str(exc)) from exc
+        raise _password_error(password, exc) from exc
     except PermissionError as exc:
         raise PdfInspectionError(Reason.UNREADABLE, str(exc)) from exc
     except FileNotFoundError as exc:
         raise PdfInspectionError(Reason.NOT_FOUND, str(exc)) from exc
     except (pikepdf.PdfError, OSError, ValueError, RecursionError) as exc:
         raise PdfInspectionError(Reason.INVALID_PDF, str(exc)) from exc
-    if encrypted:
-        return PdfInfo(page_count, (), encrypted=True, signed=signed, generated_marker=marker)
     try:
-        flags = page_text_flags(path)
+        flags = page_text_flags(path, password)
     except (pypdfium2.PdfiumError, OSError) as exc:
         raise PdfInspectionError(Reason.INVALID_PDF, str(exc)) from exc
-    return PdfInfo(page_count, flags, signed=signed, generated_marker=marker)
+    return PdfInfo(page_count, flags, protection, signed=signed, generated_marker=marker)
 
 
-def count_pages(path: Path) -> int:
+def count_pages(path: Path, password: str = "") -> int:
     """Page count used for output validation; raises on an unreadable PDF."""
-    with pikepdf.open(path) as pdf:
+    with pikepdf.open(path, password=password) as pdf:
         return len(pdf.pages)
+
+
+def decrypt_copy(source: Path, password: str, target: Path) -> None:
+    """Write an unencrypted copy of ``source`` to ``target`` (a private work file)."""
+    with pikepdf.open(source, password=password) as pdf:
+        pdf.save(target)
+
+
+def encrypt_like(plain: Path, target: Path, protection: Protection) -> None:
+    """Encrypt ``plain`` into ``target`` the way the source was protected.
+
+    The copy opens with the same password as the source and keeps its restrictions,
+    always with AES-256. The owner password is the source's when the user entered it;
+    otherwise it is unknown and a random one is set, so the restrictions cannot be
+    lifted from the copy either.
+    """
+    owner = protection.password if protection.owner else secrets.token_urlsafe(24)
+    encryption = pikepdf.Encryption(
+        owner=owner, user=protection.password, R=6, allow=protection.permissions
+    )
+    with pikepdf.open(plain) as pdf:
+        pdf.save(target, encryption=encryption)
 
 
 def add_marker(path: Path, version: str) -> None:

@@ -110,7 +110,7 @@ In a truly noninteractive CLI run, an Ask policy must never hang or silently aut
 
 Use staging in the destination filesystem, validate the PDF, then publish with atomic replacement/no-clobber semantics appropriate to the policy. Reject any destination that aliases an original, including symlinks/hard links and case-normalized collisions. Handle full disks, locked destinations, lost mounts, and permission failures without deleting valid prior files. Do not require hard-link support as the only way to operate on common removable drives; specify tested filesystem behavior and fallback guarantees.
 
-Signed or encrypted documents need explicit handling. Do not bypass protection or silently invalidate signatures. For the MVP, reject unsupported protected/signed inputs clearly and preserve originals.
+Signed or encrypted documents need explicit handling. Do not bypass protection or silently invalidate signatures. Reject signed and unsupported protected inputs clearly and preserve originals. *Owner decision (2026-11-10, ADR 0011):* a password-protected PDF is processed only with the password the user supplies, and its copy is protected with the same password and permissions; a PDF that opens freely but carries owner restrictions is processed only when the user opts in, and its copy keeps those restrictions.
 
 ## 5. OCR, language, and preprocessing
 

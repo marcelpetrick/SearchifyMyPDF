@@ -93,6 +93,7 @@ def test_to_json_is_complete_and_exact() -> None:
         "theme": "system",
         "ui_language": "en",
         "timeout_seconds": 1800,
+        "process_restricted_pdfs": False,
     }
     assert migrate({"schema_version": 1})["schema_version"] == SCHEMA_VERSION
     assert migrate({})["previous_suffixes"] == []

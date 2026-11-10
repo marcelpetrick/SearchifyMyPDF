@@ -12,6 +12,6 @@
     {"file": "bgbl1950_nr5_with_text_layer_de.pdf", "pages": 2, "text_layer": true, "protected": false,
      "words": ["Bundesgesetzblatt", "Abkommen"]},
     {"file": "ndl583_typewritten_scan.pdf", "pages": 2, "text_layer": false, "protected": true,
-     "words": []}
+     "words": ["PROSECUTION", "DOCUMENTARY", "Document", "Division"]}
   ]
 }

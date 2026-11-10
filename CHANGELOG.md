@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.18.0 — 2026-11-10
+
+- feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected
+
 ## 0.17.8 — 2026-11-10
 
 - ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired)

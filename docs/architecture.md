@@ -107,7 +107,11 @@ flowchart TD
     E --> F{Destination alias / symlink?}
     F -- yes --> FA[FAILED]
     F -- no --> G[Inspect PDF: pages with text, encrypted, signed, marker]
-    G --> H{Encrypted / signed?}
+    G --> PW{Needs a password?}
+    PW -- yes --> PA[Try known passwords, then ask<br/>3 attempts · skip · cancel all]
+    PA -- unlocked --> H
+    PA -- no answer / wrong --> FA
+    PW -- no --> H{Signed? Restricted and not enabled?}
     H -- yes --> FA
     H -- no --> I{Copy exists?}
     I -- yes --> J{Output policy}

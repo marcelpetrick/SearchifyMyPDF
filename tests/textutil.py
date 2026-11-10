@@ -12,17 +12,17 @@ import pypdfium2
 from searchify_pdf.engines.pdf_inspect import _PDFIUM_LOCK
 
 
-def page_texts(path: Path) -> list[str]:
+def page_texts(path: Path, password: str = "") -> list[str]:
     with _PDFIUM_LOCK:
-        doc = pypdfium2.PdfDocument(str(path))
+        doc = pypdfium2.PdfDocument(str(path), password=password or None)
         try:
             return [doc[i].get_textpage().get_text_range() for i in range(len(doc))]
         finally:
             doc.close()
 
 
-def all_text(path: Path) -> str:
-    return "\n".join(page_texts(path))
+def all_text(path: Path, password: str = "") -> str:
+    return "\n".join(page_texts(path, password))
 
 
 def contains_words(

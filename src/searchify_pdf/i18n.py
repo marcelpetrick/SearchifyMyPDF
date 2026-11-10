@@ -46,8 +46,22 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
         DE: "Name endet wie eine durchsuchbare Kopie; Datei direkt auswählen, um sie zu verarbeiten",
     },
     "reason.encrypted": {
-        EN: "Password-protected or encrypted PDFs are not supported",
-        DE: "Passwortgeschützte oder verschlüsselte PDFs werden nicht unterstützt",
+        EN: "This kind of PDF encryption is not supported",
+        DE: "Diese Art der PDF-Verschlüsselung wird nicht unterstützt",
+    },
+    "reason.password_required": {
+        EN: "Needs a password: run it in the window or a terminal, or pass --password-file",
+        DE: "Benötigt ein Passwort: im Fenster oder Terminal starten oder --password-file angeben",
+    },
+    "reason.wrong_password": {
+        EN: "Wrong password",
+        DE: "Falsches Passwort",
+    },
+    "reason.restricted": {
+        EN: "PDF has usage restrictions (owner password); enable "
+        "“Also process PDFs with usage restrictions” in Settings",
+        DE: "PDF hat Nutzungsbeschränkungen (Besitzerpasswort); in den Einstellungen "
+        "„Auch PDFs mit Nutzungsbeschränkungen verarbeiten“ aktivieren",
     },
     "reason.signed": {
         EN: "Digitally signed PDF; a copy would invalidate the signature",
@@ -179,6 +193,22 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
         EN: "“{name}” already has text on {text_pages} of {pages} page(s).\nReplace the existing recognized text? (No keeps it and only adds text to image-only pages.)",
         DE: "„{name}“ hat bereits Text auf {text_pages} von {pages} Seite(n).\nVorhandenen erkannten Text ersetzen? (Nein behält ihn und ergänzt nur Seiten ohne Text.)",
     },
+    "ask.password.title": {EN: "Password required", DE: "Passwort erforderlich"},
+    "ask.password.text": {
+        EN: "“{name}” is password-protected.\nEnter its password to make a searchable copy. "
+        "The copy is protected with the same password.",
+        DE: "„{name}“ ist passwortgeschützt.\nPasswort eingeben, um eine durchsuchbare Kopie "
+        "zu erstellen. Die Kopie wird mit demselben Passwort geschützt.",
+    },
+    "ask.password.retry": {
+        EN: "Wrong password for “{name}”. Try again.",
+        DE: "Falsches Passwort für „{name}“. Bitte erneut versuchen.",
+    },
+    "ask.password.prompt": {
+        EN: "Password (empty: skip this PDF, Ctrl+D: cancel all): ",
+        DE: "Passwort (leer: dieses PDF überspringen, Strg+D: alles abbrechen): ",
+    },
+    "ask.password.ok": {EN: "Unlock", DE: "Entsperren"},
     "ask.apply_all": {
         EN: "Apply to the rest of this batch",
         DE: "Für den Rest dieses Durchlaufs übernehmen",
@@ -222,6 +252,10 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "policy.text.always_replace": {
         EN: "Always replace existing OCR text",
         DE: "Vorhandenen OCR-Text immer ersetzen",
+    },
+    "settings.restricted": {
+        EN: "Also process PDFs with usage restrictions (the copy keeps them)",
+        DE: "Auch PDFs mit Nutzungsbeschränkungen verarbeiten (die Kopie behält sie)",
     },
     "settings.existing_output": {
         EN: "If the searchable copy already exists",

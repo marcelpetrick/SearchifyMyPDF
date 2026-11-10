@@ -92,10 +92,11 @@ checked on a real Wayland session). Real-life corpus of 6 documents (1929–1967
 PD + CC BY-SA), 8 scanner-defect variants, 8 packaged + 4 Docker-image E2E tests. Found and
 fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
 
-30. **Decision needed (#12):** protected PDFs. (a) open-password PDFs: ask for the
-    password, keep the copy protected with it; (b) owner-restricted PDFs (opens freely,
-    "no copying"): opt-in "I may use these documents", keep the restriction flags.
-    Today both are rejected as VISION §5 requires.
+30. ✅ **Protected PDFs (#12, owner chose both a and b, ADR 0011):** (a) open-password
+    PDFs: password dialog / hidden terminal prompt / `--password-file`, copy protected
+    with the same password and permissions; (b) owner-restricted PDFs: opt-in setting
+    `process_restricted_pdfs` / `--process-restricted`, copy keeps the restrictions.
+    Decrypted data only in a private temp folder; signed PDFs stay rejected.
 
 ### M3 / M4 — Windows, macOS
 Architecture keeps platform adapters separate; artifacts and native evidence are
@@ -108,7 +109,7 @@ flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
 [`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
 
 Milestones: **M0 ✅ · M1 ✅ · M2 ✅ (Linux prerelease pending owner review of the draft) ·
-M2b ✅ (steps 21–29; step 30 awaits a decision) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
+M2b ✅ (steps 21–30) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
@@ -187,3 +188,4 @@ M2b ✅ (steps 21–29; step 30 awaits a decision) · M3 ⏳ #10 · M4 ⏳ #11.*
 | 0.17.6 | 2026-11-10 | build(linux): retry flaky mirror downloads when building the builder image |
 | 0.17.7 | 2026-11-10 | ci(native): build and smoke-test Windows and macOS executables on GitHub runners |
 | 0.17.8 | 2026-11-10 | ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired) |
+| 0.18.0 | 2026-11-10 | feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected |

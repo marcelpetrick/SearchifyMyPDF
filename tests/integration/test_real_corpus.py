@@ -22,9 +22,8 @@ def test_manifest_matches_the_files() -> None:
     for doc in realcorpus.documents():
         info = inspect_pdf(doc.path)
         assert info.encrypted is doc.protected, doc.file
-        if not doc.protected:
-            assert info.page_count == doc.pages, doc.file
-            assert any(info.pages_with_text) is doc.text_layer, doc.file
+        assert info.page_count == doc.pages, doc.file
+        assert any(info.pages_with_text) is doc.text_layer, doc.file
 
 
 def test_real_corpus_default_settings(tmp_path: Path) -> None:
@@ -37,7 +36,7 @@ def test_real_corpus_default_settings(tmp_path: Path) -> None:
         result = by_name[doc.file]
         copy = tmp_path / doc.copy_name
         if doc.protected:
-            assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.ENCRYPTED)
+            assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.RESTRICTED)
             assert not copy.exists()
         elif doc.text_layer:  # "keep existing text": every page has text → copied as is
             assert result.outcome is Outcome.PRESERVED, result
@@ -61,13 +60,54 @@ def test_real_text_layer_is_replaced_on_request(tmp_path: Path) -> None:
     assert contains_words(all_text(copy), doc.words)
 
 
+def test_real_restricted_scan_is_processed_when_enabled(tmp_path: Path) -> None:
+    """ADR 0011: opt-in; the copy is searchable and keeps exactly the source's restrictions."""
+    import pikepdf
+
+    doc = next(d for d in realcorpus.documents() if d.protected)
+    realcorpus.copy_corpus(tmp_path / "all")
+    src = tmp_path / "all" / doc.file
+    before = sha256(src)
+    settings = Settings(process_restricted_pdfs=True)
+    result = BatchRunner(settings, OcrmypdfEngine(), version="t").run([src]).results[0]
+    assert result.outcome is Outcome.CONVERTED, result
+    copy = src.with_name(doc.copy_name)
+    assert contains_words(all_text(copy), doc.words), all_text(copy)[:400]
+    with pikepdf.open(src) as original, pikepdf.open(copy) as protected:
+        assert protected.is_encrypted and not protected.owner_password_matched
+        assert protected.allow == original.allow
+    assert sha256(src) == before
+
+
 def test_synthetic_owner_restricted_pdf_is_rejected_like_the_real_one(tmp_path: Path) -> None:
     from tests import synthetic
 
     src = synthetic.restricted_pdf(tmp_path / "restricted.pdf")
     summary = BatchRunner(Settings(), OcrmypdfEngine(), version="t").run([src])
     result = summary.results[0]
-    assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.ENCRYPTED)
+    assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.RESTRICTED)
+
+
+def test_password_protected_scan_gets_a_password_protected_searchable_copy(
+    tmp_path: Path,
+) -> None:
+    """ADR 0011: real OCR on a decrypted private copy; the copy needs the same password."""
+    import pikepdf
+
+    from tests import synthetic
+
+    src = synthetic.encrypted_pdf(tmp_path / "Statement.pdf")
+    before = sha256(src)
+    summary = BatchRunner(Settings(), OcrmypdfEngine(), version="t", passwords=["secret"]).run(
+        [src]
+    )
+    assert summary.count(Outcome.CONVERTED) == 1, summary
+    copy = tmp_path / "Statement_searchable.pdf"
+    with pytest.raises(pikepdf.PasswordError):
+        pikepdf.open(copy)
+    assert contains_words(all_text(copy, "secret"), list(synthetic.ENGLISH_LINES[0].split()))
+    assert sha256(src) == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Statement.pdf", copy.name]
 
 
 def test_long_document_keeps_every_page(tmp_path: Path) -> None:

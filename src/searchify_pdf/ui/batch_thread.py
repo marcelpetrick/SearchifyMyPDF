@@ -16,12 +16,12 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 
 from searchify_pdf import __version__
-from searchify_pdf.application.workflow import BatchRunner, Choice, Decision
+from searchify_pdf.application.workflow import BatchRunner, Choice, Decision, PasswordAnswer
 from searchify_pdf.domain.jobs import BatchSummary, JobEvent
 from searchify_pdf.domain.settings import Settings
 from searchify_pdf.engines.base import OcrEngine
 
-Prompter = Callable[[str, dict[str, object]], Decision]
+Prompter = Callable[[str, dict[str, object]], Decision | PasswordAnswer]
 
 
 class _PromptBridge(QObject):
@@ -30,7 +30,7 @@ class _PromptBridge(QObject):
     def __init__(self, prompter: Prompter) -> None:
         super().__init__()
         self.prompter = prompter
-        self.answer: Decision = Decision(Choice.CANCEL)
+        self.answer: Decision | PasswordAnswer = Decision(Choice.CANCEL)
 
     @Slot(str, dict)
     def handle(self, kind: str, payload: dict[str, object]) -> None:
@@ -43,20 +43,30 @@ class GuiDecisions:
         self._cancel = cancel
         self._lock = threading.Lock()
 
-    def _ask(self, kind: str, payload: dict[str, object]) -> Decision:
+    def _ask(self, kind: str, payload: dict[str, object]) -> Decision | PasswordAnswer:
         with self._lock:
             if self._cancel.is_set():
                 return Decision(Choice.CANCEL)
             self._bridge.request.emit(kind, payload)  # blocks until the UI answered
-            return self._bridge.answer
+            answer = self._bridge.answer
+            self._bridge.answer = Decision(Choice.CANCEL)  # never keep a password around
+            return answer
+
+    def _decision(self, kind: str, payload: dict[str, object]) -> Decision:
+        answer = self._ask(kind, payload)
+        return answer if isinstance(answer, Decision) else Decision(Choice.CANCEL)
 
     def existing_output(self, source: Path, destination: Path) -> Decision | None:
-        return self._ask("output", {"source": str(source), "destination": str(destination)})
+        return self._decision("output", {"source": str(source), "destination": str(destination)})
 
     def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
-        return self._ask(
+        return self._decision(
             "text", {"source": str(source), "text_pages": text_pages, "pages": total_pages}
         )
+
+    def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
+        answer = self._ask("password", {"source": str(source), "retry": retry})
+        return answer if isinstance(answer, PasswordAnswer) else PasswordAnswer(Choice.CANCEL)
 
 
 class BatchThread(QThread):

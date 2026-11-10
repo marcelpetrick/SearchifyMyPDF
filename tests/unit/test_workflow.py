@@ -213,8 +213,8 @@ def test_existing_text_ask_batch_and_cancel(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("make", "reason"),
     [
-        (synthetic.encrypted_pdf, Reason.ENCRYPTED),
-        (lambda p: synthetic.encrypted_pdf(p, user_password=""), Reason.ENCRYPTED),
+        (synthetic.encrypted_pdf, Reason.PASSWORD_REQUIRED),
+        (lambda p: synthetic.encrypted_pdf(p, user_password=""), Reason.RESTRICTED),
         (synthetic.signed_pdf, Reason.SIGNED),
         (synthetic.corrupt_pdf, Reason.INVALID_PDF),
     ],

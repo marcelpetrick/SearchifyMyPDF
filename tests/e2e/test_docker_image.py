@@ -121,3 +121,20 @@ def test_image_docker_stop_cancels_cleanly(tmp_path: Path) -> None:
     assert "SIGTERM: cancelling" in logs
     assert not list(data.glob(".*")), "staging or lock files left behind"
     assert {p: sha256(p) for p in originals} == originals
+
+
+def test_image_unlocks_protected_pdfs_with_a_mounted_password_file(tmp_path: Path) -> None:
+    import pikepdf
+
+    data, config = tmp_path / "data", tmp_path / "config"
+    data.mkdir()
+    config.mkdir()
+    synthetic.encrypted_pdf(data / "Statement.pdf")
+    (config / "passwords.txt").write_text("secret\n", encoding="utf-8")
+    _writable(data, config)
+    done = _run(data, "--password-file", "/config/passwords.txt", "/data", config=config)
+    assert done.returncode == 0, done.stdout + done.stderr
+    copy = data / "Statement_searchable.pdf"
+    with pytest.raises(pikepdf.PasswordError):
+        pikepdf.open(copy)
+    assert contains_words(all_text(copy, "secret"), ["Searchable", "invoice"])

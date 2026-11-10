@@ -43,6 +43,10 @@ modified, and no Python or OCR installation is needed.
 - **Existing text:** keep it and only OCR image-only pages (default), always replace old
   OCR (`--redo-ocr`, never rasterizing), or ask.
 - **Existing copy:** overwrite, skip, or ask (default) — with "apply to the rest of this batch".
+- **Protected PDFs:** asks for the password (or reads `--password-file`) and protects the
+  copy with the same password and permissions; PDFs with usage restrictions ("no copying")
+  are processed only when enabled in Settings, and the copy keeps the restrictions.
+  Signed PDFs are rejected. See [`docs/adr/0011-protected-pdfs.md`](docs/adr/0011-protected-pdfs.md).
 - **Safe publishing:** staged in the target folder, validated, then atomically published;
   failures, cancellation, full disks or crashes never damage the previous copy.
 - **Parallel but bounded:** Automatic, one-after-another, or a fixed number of documents;
@@ -80,6 +84,7 @@ and a normal desktop (X11 or Wayland). Windows and macOS builds are planned, not
 searchify-pdf --cli ~/Scans                                  # headless, prompts on a terminal
 searchify-pdf --cli --non-interactive --on-existing-output skip ~/Scans
 searchify-pdf --cli --on-existing-text replace --languages eng --jobs 4 report.pdf
+searchify-pdf --cli --password-file passwords.txt --process-restricted ~/Statements
 searchify-pdf --licenses | --version | --help
 ```
 
@@ -146,7 +151,8 @@ inventory → draft prerelease), **Mutation** (weekly), **Dependencies** (pip-au
 ## Known limitations
 
 - Linux x86-64 only for now (Windows = milestone M3, macOS = M4).
-- Encrypted, password-protected and digitally signed PDFs are rejected (reported, untouched).
+- Digitally signed PDFs are rejected (reported, untouched); a copy would invalidate the signature.
+- Desktop search tools may not index the text of password-protected copies.
 - Pages that mix digital text with scanned regions keep their text unchanged in the default
   "keep existing text" mode.
 - English and German language data are bundled; handwriting and very poor scans are not
