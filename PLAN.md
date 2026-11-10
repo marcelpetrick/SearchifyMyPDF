@@ -86,6 +86,17 @@ Size reduction (each step measured; E2E must pass before commit). Target: ≤ 10
 29. Size budget gate (`scripts/check_binary_size.py`) in the pipeline so it cannot regress;
     record before/after in `docs/benchmarks.md`.
 
+**M2b result (0.17.3):** steps 21–29 done. 133.6 MB → **90.8 MB (−32 %)**, unpacked
+326 → 210 MB, same functionality (all packaged E2E green after every step; GUI also
+checked on a real Wayland session). Real-life corpus of 6 documents (1929–1967, EN/DE,
+PD + CC BY-SA), 8 scanner-defect variants, 8 packaged + 4 Docker-image E2E tests. Found and
+fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
+
+30. **Decision needed (#12):** protected PDFs. (a) open-password PDFs: ask for the
+    password, keep the copy protected with it; (b) owner-restricted PDFs (opens freely,
+    "no copying"): opt-in "I may use these documents", keep the restriction flags.
+    Today both are rejected as VISION §5 requires.
+
 ### M3 / M4 — Windows, macOS
 Architecture keeps platform adapters separate; artifacts and native evidence are
 **not** produced yet (no claims of support). Tracked as deferred issues.
@@ -97,11 +108,11 @@ flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
 [`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
 
 Milestones: **M0 ✅ · M1 ✅ · M2 ✅ (Linux prerelease pending owner review of the draft) ·
-M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
+M2b ✅ (steps 21–29; step 30 awaits a decision) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
-| A01 | ✅ | `tests/integration/test_engine_ocr.py` (synthetic EN/DE + public-domain 1946 typewritten scan), packaged E2E |
+| A01 | ✅ | `tests/integration/test_real_corpus.py` (real PD/CC scans 1929–1967, EN/DE), `test_engine_ocr.py` (synthetic EN/DE, 8 scanner defects), packaged + Docker-image E2E on the real corpus |
 | A02 | ✅ | checksums before/after in workflow, fault (kill, cancel, overwrite failure) and E2E tests |
 | A03 | ✅ | `test_folder_recursive_adjacent_and_repeat_run`, `test_nested_unicode_folder_real_ocr`, E2E offline conversion |
 | A04 | ✅ | repeat-run, suffix-change and explicit-override tests (`test_workflow.py`, `test_inspect_discovery.py`) |
@@ -109,7 +120,7 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | A06 | ✅ | overwrite/ask/skip incl. failed replacement keeps previous copy; CLI exit code 3 |
 | A07 | ✅ | UI save/close/discard/cancel, write failure, read-only, malformed, stale settings tests |
 | A08 | ✅ | packaged E2E: settings beside the executable, read-only app folder, no other writes |
-| A09 | 🟡 | drop launch = paths at start-up (GUI smoke in packaged E2E), launcher file tested; interactive desktop drop: manual check pending (#7) |
+| A09 | 🟡 | packaged E2E: installed launcher validated and started via `gio launch` with dropped files on a real X server, window mapped, files converted; GUI smoke on a real Wayland session; physical drag in GNOME/KDE: manual check pending (#7) |
 | A10 | ✅ | packaged E2E in clean, offline Ubuntu 22.04 containers without Python/Tesseract |
 | A11 | 🟡 | light/dark + EN/DE tested offscreen, screenshots in README; formal accessibility review pending (#7) |
 | A12 | ✅ | worker-limit test (max concurrency), cancellation kills process tree, timeout test, benchmark |
@@ -171,3 +182,4 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | 0.17.1 | 2026-11-10 | build(linux): strip native libraries and drop unused codecs and Qt plugins |
 | 0.17.2 | 2026-11-10 | build(linux): bundle Qt's ICU 73.2 data trimmed to the English/German UI |
 | 0.17.3 | 2026-11-10 | ci(size): fail the pipeline above a 95 MB executable budget and document the size reduction |
+| 0.17.4 | 2026-11-10 | docs(plan): record M2b results and the protected-PDF decision |

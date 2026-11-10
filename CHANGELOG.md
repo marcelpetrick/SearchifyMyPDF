@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.4 — 2026-11-10
+
+- docs(plan): record M2b results and the protected-PDF decision
+
 ## 0.17.3 — 2026-11-10
 
 - ci(size): fail the pipeline above a 95 MB executable budget and document the size reduction
