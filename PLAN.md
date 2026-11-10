@@ -103,9 +103,11 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     setup, the packaged executable and the Docker image. Found and fixed: `eng+deu`
     dropped umlauts (92.7 % → 100 % German words) — the engine now passes English last.
     Results: [`docs/benchmarks.md`](docs/benchmarks.md#recognition-quality-plan-step-31).
-32. ⏳ **Public release with Linux, Windows and macOS (requested 2026-11-10):** native
+32. ✅ **Public release with Linux, Windows and macOS (requested 2026-11-10):** native
     Windows/macOS builds with smoke tests (`native.yml`), release workflow publishes a
     public release with all three platforms and verifies the published assets.
+    First public release: [v0.19.1](https://github.com/marcelpetrick/SearchifyMyPDF/releases/tag/v0.19.1)
+    (Linux 90.8 MB, Windows 154.2 MB, macOS arm64 73.1 MB; rehearsed as a draft first).
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
@@ -203,3 +205,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.18.1 | 2026-11-10 | fix(ocr): keep German umlauts by passing English last, gated by a ground-truth quality test |
 | 0.19.0 | 2026-11-10 | ci(release): publish public releases with Linux, Windows and macOS executables and verify the published assets |
 | 0.19.1 | 2026-11-10 | ci(release): verify drafts in the publish job and public releases with a read-only token |
+| 0.19.2 | 2026-11-10 | docs(plan): record the first public release v0.19.1 with all three platforms |
