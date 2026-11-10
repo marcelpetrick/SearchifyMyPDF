@@ -35,11 +35,42 @@ a = Analysis(
         "searchify_pdf.ui.app",
         "ocrmypdf.builtin_plugins",
     ],
-    excludes=["tkinter", "PySide6.QtNetwork", "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtWebEngineCore"],
+    excludes=[
+        "tkinter",
+        "PySide6.QtNetwork",
+        "PySide6.QtQml",
+        "PySide6.QtQuick",
+        "PySide6.QtWebEngineCore",
+        # Size (PLAN step 26): optional modules nothing in the application imports.
+        "PIL._avif",  # AVIF codec (+ libavif); PDFs never embed AVIF images
+        "PIL.AvifImagePlugin",
+        "lxml.objectify",
+        "lxml.html",
+        "setuptools",
+        "pkg_resources",
+        "_distutils_hack",
+    ],
     noarchive=False,
 )
-# The GTK3 platform theme plugin needs a full GTK stack; Qt falls back to its own style.
-a.binaries = [b for b in a.binaries if "platformthemes/libqgtk3" not in b[0]]
+# Qt plugins a desktop session never loads. Kept: xcb + wayland (desktops), offscreen
+# (headless smoke test), svg/ico/jpeg image formats, input contexts, xcb GL integration.
+UNUSED_QT_PLUGINS = (
+    "platformthemes/libqgtk3",  # needs a full GTK stack; Qt falls back to its own style
+    "platforms/libqeglfs",
+    "platforms/libqlinuxfb",
+    "platforms/libqminimal",
+    "platforms/libqvkkhrdisplay",
+    "platforms/libqvnc",
+    "egldeviceintegrations/",
+    "plugins/generic/",
+    "imageformats/libqgif",
+    "imageformats/libqicns",
+    "imageformats/libqtga",
+    "imageformats/libqtiff",
+    "imageformats/libqwbmp",
+    "imageformats/libqwebp",
+)
+a.binaries = [b for b in a.binaries if not any(u in b[0] for u in UNUSED_QT_PLUGINS)]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
@@ -49,7 +80,7 @@ exe = EXE(
     [],
     name=name,
     debug=False,
-    strip=False,
+    strip=True,  # drop symbol tables of bundled native libraries (PLAN step 26)
     upx=False,
     console=True,
     runtime_tmpdir=None,
