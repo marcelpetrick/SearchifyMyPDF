@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.22 — 2026-11-10
+
+- build(linux): bundle only runtime dependencies and PyInstaller into the executable
+
 ## 0.16.21 — 2026-11-10
 
 - test(e2e): launch the installed desktop entry with dropped files on a real X server

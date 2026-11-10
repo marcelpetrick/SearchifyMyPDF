@@ -1692,6 +1692,9 @@ gui = [
 ]
 
 [package.dev-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
 dev = [
     { name = "black" },
     { name = "build" },
@@ -1721,6 +1724,7 @@ requires-dist = [
 provides-extras = ["gui"]
 
 [package.metadata.requires-dev]
+build = [{ name = "pyinstaller", specifier = "==6.22.3" }]
 dev = [
     { name = "black", specifier = "==26.10.1" },
     { name = "build", specifier = "==1.6.1" },

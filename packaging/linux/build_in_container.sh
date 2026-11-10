@@ -14,7 +14,8 @@ cd /work/repo
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/searchify_pdf/_version.py)"
 NAME="searchify-pdf-${VERSION}-linux-x86_64"
 
-uv sync --locked --python 3.12 --quiet
+# Runtime + GUI + PyInstaller only (no dev group): test/lint tools must not be bundled.
+uv sync --locked --python 3.12 --quiet --no-dev --group build --extra gui
 TESSDATA=/work/tessdata
 if [[ -d /tessdata-cache ]]; then cp -r /tessdata-cache "${TESSDATA}"; fi
 scripts/fetch_tessdata.sh "${TESSDATA}"

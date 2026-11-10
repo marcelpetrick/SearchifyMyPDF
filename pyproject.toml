@@ -32,7 +32,11 @@ dependencies = [
 gui = ["PySide6-Essentials==6.12.0"]
 
 [dependency-groups]
+# What the release executable is built with: runtime dependencies + PyInstaller only, so
+# no test or lint tool can leak into the bundle (packaging/linux/build_in_container.sh).
+build = ["pyinstaller==6.22.3"]
 dev = [
+    {include-group = "build"},
     "PySide6-Essentials==6.12.0",
     "black==26.10.1",
     "build==1.6.1",
@@ -41,7 +45,6 @@ dev = [
     "mutmut==3.8.1",
     "mypy==2.4.1",
     "pillow==13.0.0",
-    "pyinstaller==6.22.3",
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
     "pytest-qt==4.5.0",
