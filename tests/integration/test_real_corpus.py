@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
+"""The full workflow on real-life public-domain / CC scans (A01, A02, A05, VISION §5)."""
+
+from pathlib import Path
+
+import pytest
+
+from searchify_pdf.application.workflow import BatchRunner
+from searchify_pdf.domain.jobs import Outcome, Reason
+from searchify_pdf.domain.settings import ExistingTextPolicy, Settings, WorkerMode
+from searchify_pdf.engines.ocrmypdf_engine import OcrmypdfEngine
+from tests import realcorpus
+from tests.textutil import all_text, contains_words, page_texts, sha256
+
+pytestmark = pytest.mark.ocr
+
+
+def test_manifest_matches_the_files() -> None:
+    from searchify_pdf.engines.pdf_inspect import inspect_pdf
+
+    for doc in realcorpus.documents():
+        info = inspect_pdf(doc.path)
+        assert info.encrypted is doc.protected, doc.file
+        if not doc.protected:
+            assert info.page_count == doc.pages, doc.file
+            assert any(info.pages_with_text) is doc.text_layer, doc.file
+
+
+def test_real_corpus_default_settings(tmp_path: Path) -> None:
+    docs = realcorpus.copy_corpus(tmp_path)
+    originals = {p: sha256(p) for p in tmp_path.iterdir()}
+    settings = Settings(worker_mode=WorkerMode.FIXED, fixed_workers=2)
+    summary = BatchRunner(settings, OcrmypdfEngine(), version="t").run([tmp_path])
+    by_name = {r.source.name: r for r in summary.results}
+    for doc in docs:
+        result = by_name[doc.file]
+        copy = tmp_path / doc.copy_name
+        if doc.protected:
+            assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.ENCRYPTED)
+            assert not copy.exists()
+        elif doc.text_layer:  # "keep existing text": every page has text → copied as is
+            assert result.outcome is Outcome.PRESERVED, result
+            assert page_texts(copy) == page_texts(doc.path)
+        else:
+            assert result.outcome is Outcome.CONVERTED, result
+            assert contains_words(all_text(copy), doc.words), (doc.file, all_text(copy)[:400])
+    assert {p: sha256(p) for p in originals} == originals
+    assert not any(p.name.startswith(".") for p in tmp_path.iterdir())
+
+
+def test_real_text_layer_is_replaced_on_request(tmp_path: Path) -> None:
+    doc = next(d for d in realcorpus.documents() if d.text_layer)
+    realcorpus.copy_corpus(tmp_path / "all")
+    src = tmp_path / "all" / doc.file
+    settings = Settings(existing_text_policy=ExistingTextPolicy.ALWAYS_REPLACE)
+    summary = BatchRunner(settings, OcrmypdfEngine(), version="t").run([src])
+    assert summary.count(Outcome.CONVERTED) == 1, summary
+    copy = src.with_name(doc.copy_name)
+    assert len(page_texts(copy)) == doc.pages
+    assert contains_words(all_text(copy), doc.words)

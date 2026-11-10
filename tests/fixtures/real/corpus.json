@@ -1,0 +1,17 @@
+{
+  "_comment": "Real-life fixtures and what OCR must find. Provenance and licenses: SOURCES.md.",
+  "documents": [
+    {"file": "lbj1964_maddox_memo_typewritten.pdf", "pages": 1, "text_layer": false, "protected": false,
+     "words": ["Maddox", "Tonkin", "Captain", "President"]},
+    {"file": "lbj1967_apollo1_memo_typed_and_handwritten.pdf", "pages": 1, "text_layer": false, "protected": false,
+     "words": ["Apollo", "Kennedy", "capsule", "Grissom"]},
+    {"file": "lloyds1929_survey_certificate_form.pdf", "pages": 1, "text_layer": false, "protected": false,
+     "words": ["Register", "Shipping", "Committee", "ballast"]},
+    {"file": "bgbl1950_nr5_page1_image_only_de.pdf", "pages": 1, "text_layer": false, "protected": false,
+     "words": ["Bundesgesetzblatt", "Abkommen", "Zusammenarbeit", "Bundesrepublik"]},
+    {"file": "bgbl1950_nr5_with_text_layer_de.pdf", "pages": 2, "text_layer": true, "protected": false,
+     "words": ["Bundesgesetzblatt", "Abkommen"]},
+    {"file": "ndl583_typewritten_scan.pdf", "pages": 2, "text_layer": false, "protected": true,
+     "words": []}
+  ]
+}

@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.16 — 2026-11-10
+
+- test(fixtures): add real-life public-domain and CC BY-SA scan corpus with workflow tests
+
 ## 0.16.15 — 2026-11-10
 
 - docs(plan): plan more E2E coverage, real-life fixtures and a smaller executable

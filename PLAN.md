@@ -160,3 +160,4 @@ M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues
 | 0.16.13 | 2026-11-10 | fix(storage): never break a live same-host lock and age out foreign locks after the max timeout |
 | 0.16.14 | 2026-11-10 | test(storage): cover staging leftovers that cannot be deleted |
 | 0.16.15 | 2026-11-10 | docs(plan): plan more E2E coverage, real-life fixtures and a smaller executable |
+| 0.16.16 | 2026-11-10 | test(fixtures): add real-life public-domain and CC BY-SA scan corpus with workflow tests |

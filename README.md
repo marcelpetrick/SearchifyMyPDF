@@ -121,7 +121,7 @@ scripts/commit.sh patch "fix(scope): message"   # bump version → gate → comm
 | --- | --- |
 | sync / tessdata | `uv sync --locked`; pinned, SHA-256-verified language data |
 | format / lint / types / headers | Black, Ruff, mypy `--strict`, SPDX GPL headers |
-| tests | pytest: unit + property tests, integration with **real OCR** (synthetic and a public-domain 1946 typewritten scan), UI tests offscreen (pytest-qt), fault/adversarial tests |
+| tests | pytest: unit + property tests, integration with **real OCR** (synthetic documents and a real-life corpus of public-domain / CC BY-SA scans 1929–1967, English and German — see `tests/fixtures/real/SOURCES.md`), UI tests offscreen (pytest-qt), fault/adversarial tests |
 | coverage | statement **and** branch coverage checked separately, minimum 95 % (target 98 %) |
 | wheel | sdist + wheel |
 | binary | PyInstaller one-file executable built in Ubuntu 22.04 with bundled Tesseract |
