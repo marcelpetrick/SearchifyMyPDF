@@ -24,3 +24,5 @@ repository root themselves.
 | `screenshot.py` | Capture real screenshots of the running UI (real OCR batch) into `docs/media/`. |
 | `audit_dependencies.sh` | Audit the locked runtime dependencies for known vulnerabilities with pip-audit. |
 | `generate_samples.py` | Write a synthetic manual-test corpus (nested umlaut folders, scans, eight scanner defects — skew, noise, blur, low contrast, low resolution, landscape, two columns, upside down —, a 40-page report, digital, mixed, encrypted, owner-restricted, signed, corrupt, naturally suffixed). |
+| `check_binary_size.py` | Report what the one-file executable contains (largest entries and packages) and fail above the size budget (95 MB); pipeline stage `size`. |
+| `../packaging/linux/build_icu_data.sh` | Rebuild Qt's ICU 73.2 data trimmed to the en/de UI (`icu-data-filter.json`); runs in the builder image. |

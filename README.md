@@ -124,9 +124,9 @@ scripts/commit.sh patch "fix(scope): message"   # bump version → gate → comm
 | tests | pytest: unit + property tests, integration with **real OCR** (synthetic documents and a real-life corpus of public-domain / CC BY-SA scans 1929–1967, English and German — see `tests/fixtures/real/SOURCES.md`), UI tests offscreen (pytest-qt), fault/adversarial tests |
 | coverage | statement **and** branch coverage checked separately, minimum 95 % (target 98 %) |
 | wheel | sdist + wheel |
-| binary | PyInstaller one-file executable built in Ubuntu 22.04 with bundled Tesseract |
-| e2e | packaged executable in clean, **offline** containers without Python/Tesseract: CLI, portable settings, read-only app folder, GUI drop launch |
-| docker | builds the CLI image and smoke-tests it offline |
+| binary / size | PyInstaller one-file executable built in Ubuntu 22.04 with Tesseract built from source; size budget 95 MB (currently ≈ 91 MB, see [`docs/benchmarks.md`](docs/benchmarks.md)) |
+| e2e | packaged executable in clean, **offline** containers without Python/Tesseract: CLI, real-life corpus, portable settings, read-only app folder, `docker stop` cancel, terminal prompts, GUI drop launch, desktop launcher on a real X server |
+| docker | builds the CLI image and runs its E2E tests offline (real-life corpus, `/config`, `docker stop`, non-root) |
 | mutation (opt-in, weekly in CI) | mutmut on the core, minimum 95 % — see [`docs/mutation-baseline.md`](docs/mutation-baseline.md) |
 
 Workflows: **Local Pipeline** (push/PR, Python 3.12 full + 3.13), **Docker** (build, smoke,

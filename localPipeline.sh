@@ -24,9 +24,10 @@
 #   8. coverage    statement AND branch coverage >= 95% (scripts/check_coverage.py)
 #   9. wheel       build sdist + wheel
 #  10. binary      PyInstaller one-file Linux executable (scripts/build_linux_binary.sh)
-#  11. e2e         run the packaged binary in a clean container (scripts/e2e_packaged.sh)
-#  12. docker      build the CLI image and smoke-test it (scripts/docker_smoke.sh)
-#  13. mutation    mutmut baseline (only with --mutation)
+#  11. size        executable within its size budget (scripts/check_binary_size.py)
+#  12. e2e         run the packaged binary in clean containers (scripts/e2e_packaged.sh)
+#  13. docker      build the CLI image and run its E2E tests (scripts/docker_smoke.sh)
+#  14. mutation    mutmut baseline (only with --mutation)
 #
 # Reports land in reports/ (coverage HTML/JSON, junit XML, logs).
 set -uo pipefail
@@ -108,9 +109,11 @@ fi
 
 if ${PACKAGE}; then
     stage binary scripts/build_linux_binary.sh
+    stage size bash -c '${0} python scripts/check_binary_size.py --budget-mb 95 \
+        "$(ls -t dist/binary/searchify-pdf-*-linux-x86_64 | head -1)"' "${RUN}"
     stage e2e scripts/e2e_packaged.sh
 else
-    skip "binary"; skip "e2e"
+    skip "binary"; skip "size"; skip "e2e"
 fi
 
 if ${DOCKER}; then

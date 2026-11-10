@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.3 — 2026-11-10
+
+- ci(size): fail the pipeline above a 95 MB executable budget and document the size reduction
+
 ## 0.17.2 — 2026-11-10
 
 - build(linux): bundle Qt's ICU 73.2 data trimmed to the English/German UI
