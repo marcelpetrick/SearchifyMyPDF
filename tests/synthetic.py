@@ -5,7 +5,11 @@
 * ``scanned_pdf`` — image-only pages rendered from text (what a scanner produces).
 * ``digital_pdf`` — born-digital pages with a real text layer (Helvetica).
 * ``mixed_pdf`` — digital page(s) followed by scanned page(s).
-* ``encrypted_pdf``, ``signed_pdf``, ``corrupt_pdf`` — adversarial inputs.
+* ``degraded_scan_pdf`` — realistic scanner defects: skew, noise, blur, low contrast,
+  low resolution, landscape, two columns, upside-down pages (``SCAN_VARIANTS``).
+* ``long_scanned_pdf`` — many pages (throughput, progress).
+* ``encrypted_pdf``, ``restricted_pdf`` (owner password only), ``signed_pdf``,
+  ``corrupt_pdf`` — adversarial inputs.
 
 Expected words are plain ASCII so OCR assertions do not depend on font glyph coverage.
 """
@@ -16,7 +20,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pikepdf
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ENGLISH_LINES = ("Searchable invoice alpha", "Payment due within thirty days")
 GERMAN_LINES = ("Rechnung Vertrag Kunde", "Zahlung innerhalb dreissig Tage")
@@ -47,6 +51,98 @@ def scanned_pdf(
     images = [render_page(lines, dpi=dpi, rotate=rotate) for lines in pages]
     images[0].save(path, "PDF", resolution=dpi, save_all=True, append_images=images[1:])
     return path
+
+
+LEFT_COLUMN = ("Quarterly report north", "Revenue increased steadily")
+RIGHT_COLUMN = ("Inventory audit south", "Shipment arrived Monday")
+SCAN_VARIANTS = (
+    "skewed",
+    "noisy",
+    "blurred",
+    "low_contrast",
+    "low_resolution",
+    "landscape",
+    "two_columns",
+    "upside_down",
+)
+
+
+def _speckle(image: Image.Image, seed: int, amount: float = 0.02) -> Image.Image:
+    """Deterministic salt-and-pepper noise (no global random state)."""
+    noisy = image.copy()
+    pixels = noisy.load()
+    assert pixels is not None
+    width, height = noisy.size
+    state = seed or 1
+    for _ in range(int(width * height * amount)):
+        state = (state * 1103515245 + 12345) & 0x7FFFFFFF  # tiny LCG
+        x, y = state % width, (state >> 8) % height
+        pixels[x, y] = 0 if state & 1 else 255
+    return noisy
+
+
+def degraded_image(variant: str, *, dpi: int = 200) -> Image.Image:
+    """One scanned page with a typical defect; the text is always ``ENGLISH_LINES``."""
+    if variant == "skewed":
+        return render_page(ENGLISH_LINES, dpi=dpi, rotate=4)
+    if variant == "noisy":
+        return _speckle(render_page(ENGLISH_LINES, dpi=dpi), seed=7)
+    if variant == "blurred":
+        return render_page(ENGLISH_LINES, dpi=dpi).filter(ImageFilter.GaussianBlur(1.2))
+    if variant == "low_contrast":  # grey text on grey paper
+        return render_page(ENGLISH_LINES, dpi=dpi).point(lambda v: 110 + v * 90 // 255)
+    if variant == "low_resolution":
+        return render_page(ENGLISH_LINES, dpi=100)
+    if variant == "landscape":
+        portrait = render_page(ENGLISH_LINES, dpi=dpi)
+        landscape = Image.new("L", (portrait.height, portrait.width), 255)
+        landscape.paste(portrait.crop((0, 0, portrait.width, portrait.width // 2)), (0, 0))
+        return landscape
+    if variant == "two_columns":
+        page = render_page((), dpi=dpi)
+        draw = ImageDraw.Draw(page)
+        font = ImageFont.load_default(size=max(12, dpi // 4))
+        for column, lines in enumerate((LEFT_COLUMN, RIGHT_COLUMN)):
+            for row, line in enumerate(lines):
+                draw.text(
+                    (dpi // 2 + column * page.width // 2, dpi + row * dpi // 2), line, 0, font
+                )
+        return page
+    if variant == "upside_down":
+        # Orientation detection needs natural text: synthetic one-font lines stay below
+        # OCRmyPDF's confidence threshold, so a real public-domain memo is turned around.
+        import pypdfium2
+
+        from tests.realcorpus import REAL_DIR
+
+        doc = pypdfium2.PdfDocument(str(REAL_DIR / "lbj1964_maddox_memo_typewritten.pdf"))
+        try:
+            page = doc[0].render(scale=dpi / 72).to_pil().convert("L")
+        finally:
+            doc.close()
+        return page.rotate(180)
+    raise ValueError(variant)
+
+
+def expected_words(variant: str) -> tuple[str, ...]:
+    if variant == "two_columns":
+        return ("Quarterly", "Revenue", "Inventory", "Shipment")
+    if variant == "upside_down":
+        return ("Maddox", "Tonkin", "Captain", "President")
+    return ("Searchable", "invoice", "Payment", "thirty")
+
+
+def degraded_scan_pdf(path: Path, variant: str) -> Path:
+    image = degraded_image(variant)
+    dpi = 100 if variant == "low_resolution" else 200
+    image.save(path, "PDF", resolution=dpi)
+    return path
+
+
+def long_scanned_pdf(path: Path, pages: int = 40) -> Path:
+    """A long scan whose page ``n`` says ``Page n``; rendered at a modest resolution."""
+    lines = [(f"Page {n} of {pages}", "Searchable invoice alpha") for n in range(1, pages + 1)]
+    return scanned_pdf(path, lines, dpi=100)
 
 
 def _digital_page(pdf: pikepdf.Pdf, lines: Sequence[str]) -> pikepdf.Page:
@@ -94,6 +190,25 @@ def encrypted_pdf(path: Path, user_password: str = "secret") -> Path:
     scan = scanned_pdf(path.with_name(f".{path.name}.plain.pdf"))
     with pikepdf.open(scan) as pdf:
         pdf.save(path, encryption=pikepdf.Encryption(owner="owner", user=user_password))
+    scan.unlink()
+    return path
+
+
+def restricted_pdf(path: Path) -> Path:
+    """Opens without a password, but an owner password forbids extracting and modifying.
+
+    The most common protection on archive scans (e.g. the NDL fixture in ``fixtures/real``).
+    """
+    scan = scanned_pdf(path.with_name(f".{path.name}.plain.pdf"))
+    with pikepdf.open(scan) as pdf:
+        pdf.save(
+            path,
+            encryption=pikepdf.Encryption(
+                owner="owner",
+                user="",
+                allow=pikepdf.Permissions(extract=False, modify_other=False),
+            ),
+        )
     scan.unlink()
     return path
 

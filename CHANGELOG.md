@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.17 — 2026-11-10
+
+- test(fixtures): generate scanner-defect, long and owner-restricted synthetic PDFs with OCR tests
+
 ## 0.16.16 — 2026-11-10
 
 - test(fixtures): add real-life public-domain and CC BY-SA scan corpus with workflow tests

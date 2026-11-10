@@ -38,7 +38,12 @@ def main(argv: list[str]) -> int:
     synthetic.scanned_pdf(out / "Verträge 2025" / "tilted.pdf", rotate=3)
     synthetic.digital_pdf(out / "Born digital.pdf")
     synthetic.mixed_pdf(out / "Mixed digital and scanned.pdf")
+    (out / "Scanner defects").mkdir(exist_ok=True)
+    for variant in synthetic.SCAN_VARIANTS:
+        synthetic.degraded_scan_pdf(out / "Scanner defects" / f"{variant}.pdf", variant)
+    synthetic.long_scanned_pdf(out / "Long report 40 pages.pdf")
     synthetic.encrypted_pdf(out / "Encrypted.pdf")
+    synthetic.restricted_pdf(out / "Restricted (owner password).pdf")
     synthetic.signed_pdf(out / "Signed.pdf")
     synthetic.corrupt_pdf(out / "Corrupt.pdf")
     synthetic.scanned_pdf(out / "Report_searchable.pdf")

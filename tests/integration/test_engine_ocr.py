@@ -85,3 +85,13 @@ def test_real_public_domain_typewritten_scan(tmp_path: Path) -> None:
     ]
     assert contains_words(page_texts(tmp_path / "real.pdf")[0], words, minimum=4)
     assert sha256(REAL) == before
+
+
+@pytest.mark.parametrize("variant", synthetic.SCAN_VARIANTS)
+def test_scanner_defects_are_recognised(tmp_path: Path, variant: str) -> None:
+    """Typical scanner defects still yield searchable text (rotation needs auto-rotate)."""
+    src = synthetic.degraded_scan_pdf(tmp_path / f"{variant}.pdf", variant)
+    out = tmp_path / "out.pdf"
+    _run(src, out, rotate_pages=variant == "upside_down", deskew=variant == "skewed")
+    words = synthetic.expected_words(variant)
+    assert contains_words(all_text(out), words, minimum=len(words) - 1), all_text(out)

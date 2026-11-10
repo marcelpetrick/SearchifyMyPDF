@@ -59,3 +59,24 @@ def test_real_text_layer_is_replaced_on_request(tmp_path: Path) -> None:
     copy = src.with_name(doc.copy_name)
     assert len(page_texts(copy)) == doc.pages
     assert contains_words(all_text(copy), doc.words)
+
+
+def test_synthetic_owner_restricted_pdf_is_rejected_like_the_real_one(tmp_path: Path) -> None:
+    from tests import synthetic
+
+    src = synthetic.restricted_pdf(tmp_path / "restricted.pdf")
+    summary = BatchRunner(Settings(), OcrmypdfEngine(), version="t").run([src])
+    result = summary.results[0]
+    assert (result.outcome, result.reason) == (Outcome.FAILED, Reason.ENCRYPTED)
+
+
+def test_long_document_keeps_every_page(tmp_path: Path) -> None:
+    from tests import synthetic
+
+    src = synthetic.long_scanned_pdf(tmp_path / "long.pdf", pages=40)
+    settings = Settings(worker_mode=WorkerMode.FIXED, fixed_workers=2)
+    summary = BatchRunner(settings, OcrmypdfEngine(), version="t").run([src])
+    assert summary.count(Outcome.CONVERTED) == 1, summary
+    texts = page_texts(tmp_path / "long_searchable.pdf")
+    assert len(texts) == 40
+    assert sum("Page" in t for t in texts) >= 38
