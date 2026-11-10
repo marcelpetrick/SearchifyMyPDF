@@ -118,3 +118,4 @@ M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 | 0.16.11 | 2026-11-10 | fix(ui): record statistics according to the batch settings snapshot |
 | 0.16.12 | 2026-11-10 | fix(cli): cancel headless runs cleanly on SIGINT and SIGTERM |
 | 0.16.13 | 2026-11-10 | fix(storage): never break a live same-host lock and age out foreign locks after the max timeout |
+| 0.16.14 | 2026-11-10 | test(storage): cover staging leftovers that cannot be deleted |

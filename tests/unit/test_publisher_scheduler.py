@@ -198,3 +198,11 @@ def test_remove_stale_staging_only_touches_own_target(tmp_path: Path) -> None:
         path.write_bytes(b"partial")
     assert publisher.remove_stale_staging(dest) == 2
     assert [p.name for p in tmp_path.iterdir()] == [other.name]
+
+
+def test_remove_stale_staging_skips_entries_it_cannot_delete(tmp_path: Path) -> None:
+    dest = tmp_path / "a_searchable.pdf"
+    (tmp_path / ".a_searchable.pdf.dir.searchify-partial").mkdir()  # unlink() fails
+    (tmp_path / ".a_searchable.pdf.ok.searchify-partial").write_bytes(b"x")
+    assert publisher.remove_stale_staging(dest) == 1
+    assert (tmp_path / ".a_searchable.pdf.dir.searchify-partial").is_dir()

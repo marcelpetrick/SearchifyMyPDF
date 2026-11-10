@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.14 — 2026-11-10
+
+- test(storage): cover staging leftovers that cannot be deleted
+
 ## 0.16.13 — 2026-11-10
 
 - fix(storage): never break a live same-host lock and age out foreign locks after the max timeout
