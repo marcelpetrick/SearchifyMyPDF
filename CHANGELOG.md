@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.16.11 — 2026-11-10
+
+- fix(ui): record statistics according to the batch settings snapshot
+
 ## 0.16.10 — 2026-11-10
 
 - fix(ui): keep paths added during a run queued and start open events afterwards

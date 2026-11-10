@@ -568,6 +568,18 @@ def test_paths_added_during_a_run_stay_queued(qtbot: QtBot, tmp_path: Path) -> N
     assert "more item(s)" not in window.summary_label.text()
 
 
+def test_statistics_follow_the_batch_snapshot(qtbot: QtBot, tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    SettingsRepository(tmp_path).save(Settings(statistics_enabled=True), None)
+    window = make_window(qtbot, tmp_path, FakeEngine(delay=0.5))
+    window.add_paths([synthetic.scanned_pdf(tmp_path / "a.pdf")])
+    window.start()
+    window.saved = replace(window.saved, statistics_enabled=False)  # changed mid-run
+    qtbot.waitUntil(lambda: not window.running, timeout=20000)
+    assert window.stats_repo.load().attempted == 1
+
+
 def test_batch_thread_run_synchronously(tmp_path: Path) -> None:
     src = synthetic.scanned_pdf(tmp_path / "a.pdf")
     thread = BatchThread(Settings(), [src], FakeEngine(), lambda k, p: Decision(Choice.NO))

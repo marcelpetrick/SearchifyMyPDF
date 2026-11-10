@@ -615,7 +615,8 @@ class MainWindow(QMainWindow):
         if batch is not None:
             batch.wait()
             batch.deleteLater()
-        snapshot = self.run_settings()
+        # decide from the batch's own immutable snapshot, not settings changed meanwhile
+        snapshot = batch.settings if batch is not None else self.run_settings()
         if snapshot.statistics_enabled and summary.results:
             error = self.stats_repo.record_batch(summary, snapshot.ocr_languages)
             if error:
