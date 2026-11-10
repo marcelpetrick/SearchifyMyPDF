@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.0 — 2026-11-10
+
+- build(linux): bundle Tesseract 5.5.3 built from source without libarchive, ICU 70 and OpenMP
+
 ## 0.16.22 — 2026-11-10
 
 - build(linux): bundle only runtime dependencies and PyInstaller into the executable

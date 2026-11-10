@@ -13,7 +13,9 @@ Collects, from the *actual* build environment:
   license/notice files from ``.dist-info``;
 * the Python runtime and Qt version;
 * the Tesseract executable and every shared library it links against, resolved to
-  Debian packages via ``dpkg -S`` (name, version, copyright file);
+  Debian packages via ``dpkg -S`` (name, version, copyright file); a Tesseract built
+  from source (``/usr/local``, see ``packaging/linux/Dockerfile.build``) is reported from
+  its installed ``LICENSE`` and ``VERSION`` files;
 * the bundled trained language data with SHA-256 checksums.
 
 Runs on Debian/Ubuntu build hosts; native entries are skipped where ``dpkg`` is absent.
@@ -102,6 +104,31 @@ def copy_python_licenses(target: Path) -> dict[str, str]:
     return found
 
 
+SOURCE_BUILD_DOC = Path("/usr/local/share/doc/tesseract")
+
+
+def source_built_tesseract(target: Path, doc_dir: Path = SOURCE_BUILD_DOC) -> list[Component]:
+    """The Tesseract compiled from the pinned upstream release, if this host has one."""
+    license_file, version_file = doc_dir / "LICENSE", doc_dir / "VERSION"
+    if not license_file.is_file():
+        return []
+    (target / "native-tesseract-ocr.txt").write_text(
+        license_file.read_text(encoding="utf-8", errors="replace"), encoding="utf-8"
+    )
+    version = version_file.read_text(encoding="utf-8").strip() if version_file.is_file() else ""
+    return [
+        Component(
+            name="tesseract-ocr",
+            version=f"{version} (built from source)",
+            license="Apache-2.0",
+            url="https://github.com/tesseract-ocr/tesseract",
+            authors="Tesseract contributors",
+            kind="native",
+            license_text="licenses/native-tesseract-ocr.txt",
+        )
+    ]
+
+
 def native_components(target: Path) -> list[Component]:
     tesseract = shutil.which("tesseract")
     if tesseract is None or shutil.which("dpkg") is None:
@@ -117,7 +144,7 @@ def native_components(target: Path) -> list[Component]:
         owner = run(["dpkg", "-S", real]) or run(["dpkg", "-S", lib])
         if owner:
             packages[owner.split(":")[0].strip()] = None
-    result = []
+    result = source_built_tesseract(target)
     for package in packages:
         version = run(["dpkg-query", "-W", "-f=${Version}", package]).strip()
         homepage = run(["dpkg-query", "-W", "-f=${Homepage}", package]).strip()

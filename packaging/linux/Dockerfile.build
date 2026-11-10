@@ -2,8 +2,33 @@
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
 #
 # Reproducible build environment for the Linux one-file executable.
-# Ubuntu 22.04 sets the glibc baseline (2.35) and supplies Tesseract 4.1.1 + Leptonica,
-# which are bundled into the executable together with their shared libraries.
+# Ubuntu 22.04 sets the glibc baseline (2.35) and supplies Leptonica. Tesseract is built
+# from a pinned, checksum-verified source release without libarchive, libcurl, training
+# tools or OpenMP: Ubuntu's package links libarchive → libxml2 → a second ICU (≈ 12 MB
+# packed) that Searchify never uses. OCRmyPDF runs one Tesseract per page anyway, so
+# OpenMP threads would only oversubscribe the CPU (PLAN step 27).
+FROM ubuntu:22.04 AS tesseract
+ARG TESSERACT_VERSION=5.5.3
+ARG TESSERACT_SHA256=9218e62793116d42a9f6d14cd9348518b27f382096eea3d0f2d1a24616bb5884
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl build-essential autoconf automake libtool pkg-config \
+        libleptonica-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL -o /tmp/tesseract.tar.gz \
+        "https://github.com/tesseract-ocr/tesseract/archive/refs/tags/${TESSERACT_VERSION}.tar.gz" \
+    && echo "${TESSERACT_SHA256}  /tmp/tesseract.tar.gz" | sha256sum -c - \
+    && tar -C /tmp -xzf /tmp/tesseract.tar.gz \
+    && cd "/tmp/tesseract-${TESSERACT_VERSION}" \
+    && ./autogen.sh >/dev/null \
+    && ./configure --prefix=/usr/local --disable-openmp --disable-training --disable-doc \
+        --without-archive --without-curl --disable-static --disable-debug \
+        CXXFLAGS="-O2" >/dev/null \
+    && make -j"$(nproc)" >/dev/null \
+    && make install-strip DESTDIR=/stage >/dev/null \
+    && install -Dm644 LICENSE /stage/usr/local/share/doc/tesseract/LICENSE \
+    && echo "${TESSERACT_VERSION}" > /stage/usr/local/share/doc/tesseract/VERSION \
+    && rm -rf /stage/usr/local/share/tessdata /stage/usr/local/include /stage/usr/local/lib/pkgconfig
+
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -12,12 +37,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UV_COMPILE_BYTECODE=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        tesseract-ocr binutils file ca-certificates curl \
+        liblept5 binutils file ca-certificates curl \
         libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libfreetype6 \
         libdbus-1-3 libglib2.0-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 \
         libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0 libxcb-image0 \
         libxcb-xkb1 libx11-xcb1 libwayland-client0 libwayland-cursor0 libwayland-egl1 \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=tesseract /stage/usr/local/ /usr/local/
+RUN ldconfig && tesseract --version
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /usr/local/bin/uv
 RUN uv python install 3.12
