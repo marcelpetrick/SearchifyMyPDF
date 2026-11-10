@@ -14,6 +14,7 @@ from searchify_pdf.platform.desktop import (
     install_desktop_entry,
     launch_command,
     open_folder,
+    open_url,
 )
 from searchify_pdf.platform.runtime import configure_bundled_runtime, external_env
 
@@ -81,6 +82,30 @@ def test_open_folder(platform: str, program: str) -> None:
     open_folder(Path("/tmp/x"), platform=platform, popen=lambda cmd, **kw: calls.append((cmd, kw)))
     assert calls[0][0] == [program, "/tmp/x"]
     assert calls[0][1]["start_new_session"] is True
+
+
+@pytest.mark.parametrize(
+    ("platform", "prefix"),
+    [
+        ("linux", ["xdg-open"]),
+        ("darwin", ["open"]),
+        ("win32", ["rundll32", "url.dll,FileProtocolHandler"]),
+    ],
+)
+def test_open_url(platform: str, prefix: list[str]) -> None:
+    calls: list[tuple[list[str], dict[str, Any]]] = []
+    url = "https://github.com/marcelpetrick/SearchifyMyPDF/releases"
+
+    def popen(cmd: list[str], **kw: Any) -> None:
+        calls.append((cmd, kw))
+
+    open_url(url, platform=platform, popen=popen)
+    assert calls[0][0] == [*prefix, url]
+    assert calls[0][1]["start_new_session"] is True
+    for bad in ("file:///etc/passwd", "http://example.org", "-n https://x"):
+        with pytest.raises(ValueError):
+            open_url(bad, platform=platform, popen=popen)
+    assert len(calls) == 1
 
 
 class _Dist:

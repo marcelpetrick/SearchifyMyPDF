@@ -54,6 +54,7 @@ from searchify_pdf.platform.desktop import (
     install_desktop_entry,
     launch_command,
 )
+from searchify_pdf.platform.updates import UpdateCheck, UpdateStatus, check_for_update
 from searchify_pdf.storage.settings_location import (
     Location,
     SettingsHome,
@@ -141,6 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ui-language", choices=[lang.value for lang in UiLanguage])
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--licenses", action="store_true", help="list bundled components")
+    parser.add_argument(
+        "--check-update",
+        action="store_true",
+        help="ask GitHub whether a newer release exists (one HTTPS request; nothing is "
+        "downloaded or installed)",
+    )
     parser.add_argument("--gui-smoke-test", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--install-desktop-entry",
@@ -456,6 +463,20 @@ def store_in_profile(settings: Settings, home: SettingsHome, stdout: TextIO) -> 
     return EXIT_OK
 
 
+def report_update(result: UpdateCheck, language: UiLanguage, stdout: TextIO) -> int:
+    """Print the update check; exit 0 when it worked (newer or not), 1 when it failed."""
+    if result.status is UpdateStatus.NEWER:
+        text = tr(
+            "update.cli.newer", language, latest=result.latest, current=__version__, url=result.url
+        )
+    elif result.status is UpdateStatus.CURRENT:
+        text = tr("update.current", language, version=__version__)
+    else:
+        text = tr("update.failed", language, error=result.error)
+    stdout.write(f"{text}\n")
+    return EXIT_FAILED if result.status is UpdateStatus.FAILED else EXIT_OK
+
+
 def _default_engine() -> OcrEngine:
     from searchify_pdf.engines.ocrmypdf_engine import OcrmypdfEngine
 
@@ -469,6 +490,7 @@ def main(
     stdout: TextIO | None = None,
     engine_factory: Callable[[], OcrEngine] = _default_engine,
     gui_launcher: Callable[[Settings, list[Path], Path], int] | None = None,
+    update_checker: Callable[[], UpdateCheck] = check_for_update,
 ) -> int:
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
@@ -504,6 +526,8 @@ def main(
 
     if args.store_settings_in_profile:
         return store_in_profile(settings, home, stdout)
+    if args.check_update:
+        return report_update(update_checker(), settings.ui_language, stdout)
     if args.gui_smoke_test:
         from searchify_pdf.ui.app import smoke_test
 

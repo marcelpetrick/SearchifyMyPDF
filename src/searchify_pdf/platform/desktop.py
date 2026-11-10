@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
-"""Desktop integration: Linux launcher (drop target / "Open with") and "Open folder".
+"""Desktop integration: Linux launcher (drop target / "Open with"), "Open folder", browser.
 
 Dropping files onto a raw executable is not supported by every Linux file manager
 (VISION §10). Installing a freedesktop ``.desktop`` launcher with ``Exec=… %F`` and the
@@ -84,4 +84,22 @@ def open_folder(
         command = ["open", str(folder)]
     else:
         command = ["xdg-open", str(folder)]
+    popen(command, env=external_env(os.environ), start_new_session=True)
+
+
+def open_url(
+    url: str,
+    *,
+    platform: str = sys.platform,
+    popen: Callable[..., object] = subprocess.Popen,
+) -> None:
+    """Open an ``https://`` ``url`` in the default browser (never blocks)."""
+    if not url.startswith("https://"):
+        raise ValueError(f"refusing to open {url!r}")
+    if platform.startswith("win"):
+        command = ["rundll32", "url.dll,FileProtocolHandler", url]
+    elif platform == "darwin":
+        command = ["open", url]
+    else:
+        command = ["xdg-open", url]
     popen(command, env=external_env(os.environ), start_new_session=True)

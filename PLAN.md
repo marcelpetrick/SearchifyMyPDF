@@ -116,6 +116,11 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     compares up to 3 text pages with a fresh recognition and shows the agreement
     (good ≥ 85 %, poor < 50 %) in the prompt; kept doubtful/poor text gets a note;
     `--check-text` reports per PDF without writing. Real-OCR integration tests.
+35. ✅ **User-triggered update check (#2 stage 1, requested 2026-11-10, ADR 0014):**
+    *Check for updates* (About) / `--check-update` asks GitHub's latest-release API once,
+    over TLS with the OS certificate store (`truststore`), and offers the release page;
+    nothing is downloaded or replaced. Stage 2 (verified download + swap + restart)
+    waits for signing (#12).
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
@@ -130,7 +135,7 @@ flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
 [`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
 
 Milestones: **M0 ✅ · M1 ✅ · M2 ✅ ·
-M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview #11.** Deferred backlog: issues #2–#9, #12, #13.
+M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview #11.** Deferred backlog: issues #2 (stage 2), #3–#5, #7, #8, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
@@ -148,7 +153,7 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | A12 | ✅ | worker-limit test (max concurrency), cancellation kills process tree, timeout test, benchmark |
 | A13 | ✅ | off by default, true medians, no double counting, failure handling (`test_statistics.py`) |
 | A14 | ✅ | locks, simultaneous instances, no-clobber, disk full, permission, alias, hard-kill recovery |
-| A15 | ✅ | 100 % statement / 100 % branch (minimum 95 % each, enforced separately) |
+| A15 | ✅ | 99.8 % statement / 99.4 % branch (minimum 95 % each, enforced separately) |
 | A16 | ✅ | mutation 100 % of non-equivalent (min 95 %), real-OCR integration, packaged E2E |
 | A17 | ✅ | `docs/desktop-matrix.md` advertises Linux x86-64 only |
 | A18 | ✅ | release workflow publishes a public release with the tested Linux executable plus smoke-tested Windows/macOS previews, SHA256SUMS and inventories, then downloads and verifies the published assets (owner asked for public releases on 2026-11-10) |
@@ -220,3 +225,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.21.1 | 2026-11-10 | ci(native): smoke-test the existing-text cross-check and the profile settings opt-in on Windows and macOS |
 | 0.21.2 | 2026-11-10 | docs(release): mention the opt-in profile settings in the release notes |
 | 0.21.3 | 2026-11-10 | docs(readme): release badge tracks tag pushes only, coverage badge shows the measured 99.8 % / 99.4 % |
+| 0.22.0 | 2026-11-10 | feat(update): user-triggered update check against the latest GitHub release, offers the download page (#2 stage 1) |

@@ -299,7 +299,7 @@ Deliver and test Intel and Apple Silicon applications, native open/drop events, 
 
 | Issue | Scope / acceptance direction |
 | --- | --- |
-| User-triggered self-update | Button checks trusted release source, downloads and verifies matching OS/architecture asset, replaces safely via platform-appropriate helper/restart, preserves settings, supports rollback; no MVP implementation |
+| User-triggered self-update | Button checks trusted release source, downloads and verifies matching OS/architecture asset, replaces safely via platform-appropriate helper/restart, preserves settings, supports rollback; no MVP implementation. Stage 1 (ADR 0014): on request, check GitHub's latest release and offer its download page; nothing downloaded |
 | Additional OCR languages | Manage packs with verified provenance; script-aware quality tests and offline behavior |
 | Language detection | Evaluate page-level mixed-language handling; never infer an entire document solely from its first page |
 | Additional engines | Implement adapter without rewriting UI/workflow; compare accuracy, speed, licensing |

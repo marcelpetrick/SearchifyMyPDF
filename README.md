@@ -62,6 +62,10 @@ modified, and no Python or OCR installation is needed.
 - **Optional local statistics** (off by default): counts, configured languages, true
   medians; per-page time is shown as a labelled estimate.
 - **About & licenses** offline, generated from the real build inputs.
+- **Check for updates** only when you click it (About tab, or `--check-update`): one HTTPS
+  request to GitHub's public release API, and if a newer version exists, the download page
+  opens in your browser. Nothing is downloaded or installed automatically
+  ([ADR 0014](docs/adr/0014-user-triggered-update-check.md)).
 
 ## Install and use
 
@@ -105,6 +109,7 @@ searchify-pdf --cli ~/Scans                                  # headless, prompts
 searchify-pdf --cli --non-interactive --on-existing-output skip ~/Scans
 searchify-pdf --cli --on-existing-text replace --languages eng --jobs 4 report.pdf
 searchify-pdf --cli --password-file passwords.txt --process-restricted ~/Statements
+searchify-pdf --check-update                                 # is a newer release out?
 searchify-pdf --licenses | --version | --help
 ```
 

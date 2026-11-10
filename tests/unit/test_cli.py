@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from searchify_pdf import __main__ as entry
+from searchify_pdf import __version__
 from searchify_pdf.cli import main as cli
 from searchify_pdf.domain.settings import (
     ExistingOutputPolicy,
@@ -22,6 +23,7 @@ from searchify_pdf.domain.settings import (
     UiLanguage,
     WorkerMode,
 )
+from searchify_pdf.platform.updates import RELEASES_PAGE, UpdateCheck, UpdateStatus
 from searchify_pdf.storage.settings_repository import SETTINGS_FILE_NAME, SettingsRepository
 from searchify_pdf.storage.statistics import STATS_FILE_NAME
 from tests import synthetic
@@ -237,6 +239,34 @@ def test_licenses_and_desktop_entry(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     code, out = run(["--install-desktop-entry"])
     assert code == 0 and out.strip().endswith("searchify-pdf.desktop")
+
+
+def test_check_update(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEARCHIFY_PDF_HOME", str(tmp_path))
+    results = iter(
+        [
+            UpdateCheck(UpdateStatus.NEWER, "9.0.0", f"{RELEASES_PAGE}/tag/v9.0.0"),
+            UpdateCheck(UpdateStatus.CURRENT, "0.1.0"),
+            UpdateCheck(UpdateStatus.FAILED, error="offline"),
+            UpdateCheck(UpdateStatus.CURRENT, "0.1.0"),
+        ]
+    )
+
+    def check(argv: list[str]) -> tuple[int, str]:
+        out = io.StringIO()
+        code = cli.main(argv, stdout=out, update_checker=lambda: next(results))
+        return code, out.getvalue()
+
+    code, out = check(["--check-update"])
+    assert code == cli.EXIT_OK and f"9.0.0 is available (you have {__version__})" in out
+    assert f"{RELEASES_PAGE}/tag/v9.0.0" in out
+    code, out = check(["--check-update"])
+    assert code == cli.EXIT_OK and "is the latest version" in out
+    code, out = check(["--check-update"])
+    assert code == cli.EXIT_FAILED and "Could not check for updates: offline" in out
+    code, out = check(["--check-update", "--ui-language", "de"])
+    assert code == cli.EXIT_OK and "ist die neueste Version" in out
+    assert not list(tmp_path.iterdir())  # nothing saved, nothing downloaded
 
 
 def test_default_engine_factory() -> None:

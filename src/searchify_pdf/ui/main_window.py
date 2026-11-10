@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
+import threading
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl
+from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -64,7 +66,9 @@ from searchify_pdf.platform.desktop import (
     install_desktop_entry,
     launch_command,
     open_folder,
+    open_url,
 )
+from searchify_pdf.platform.updates import UpdateCheck, UpdateStatus, check_for_update
 from searchify_pdf.storage.settings_location import Location, SettingsHome, store_settings
 from searchify_pdf.storage.settings_repository import (
     LoadStatus,
@@ -135,6 +139,12 @@ class DropZone(QFrame):
             self._on_drop(paths)
 
 
+class _UpdateBridge(QObject):
+    """Delivers an update-check result from its worker thread to the UI thread."""
+
+    checked = Signal(object)
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -173,6 +183,11 @@ class MainWindow(QMainWindow):
         self.file_picker: Callable[[], list[str]] = self._pick_files
         self.folder_picker: Callable[[], str] = self._pick_folder
         self.folder_opener: Callable[[Path], None] = open_folder
+        self.url_opener: Callable[[str], None] = open_url
+        self.update_checker: Callable[[], UpdateCheck] = check_for_update
+        self.update_bridge = _UpdateBridge(self)
+        self.update_bridge.checked.connect(self._on_update_checked)
+        self.update_checking = False
         self._updating_form = False
 
         self.setWindowTitle(APP_NAME)
@@ -426,10 +441,16 @@ class MainWindow(QMainWindow):
                 self.components_table.setItem(row, col, QTableWidgetItem(value))
         self.components_table.resizeColumnsToContents()
         layout.addWidget(self.components_table, 1)
+        buttons = QHBoxLayout()
+        self.update_button = named(QPushButton(), "checkUpdate")
+        self.update_button.clicked.connect(self.check_for_updates)
+        buttons.addWidget(self.update_button)
         self.launcher_button = named(QPushButton(), "installLauncher")
         self.launcher_button.clicked.connect(self.install_launcher)
         self.launcher_button.setVisible(sys.platform.startswith("linux"))
-        layout.addWidget(self.launcher_button, 0, Qt.AlignmentFlag.AlignLeft)
+        buttons.addWidget(self.launcher_button)
+        buttons.addStretch(1)
+        layout.addLayout(buttons)
         self.tabs.addTab(page, "")
 
     def _build_actions(self) -> None:
@@ -511,6 +532,9 @@ class MainWindow(QMainWindow):
         self.about_label.setText(t("about.text", version=__version__))
         self.components_label.setText(t("about.components"))
         self.launcher_button.setText(t("button.install_launcher"))
+        self.update_button.setText(
+            t("update.checking" if self.update_checking else "button.check_update")
+        )
         self._refresh_engine_label()
         self._update_suffix_example()
         self._refresh_settings_notice()
@@ -1076,6 +1100,46 @@ class MainWindow(QMainWindow):
             text = self.t("launcher.installed")
             icon = QMessageBox.Icon.Information
         self.message(icon, APP_NAME, text, QMessageBox.StandardButton.Ok)
+
+    # ------------------------------------------------------------------ updates (#2)
+    def check_for_updates(self) -> None:
+        """Ask GitHub for the latest release, off the UI thread (only on request)."""
+        if self.update_checking:
+            return
+        self.update_checking = True
+        self.update_button.setEnabled(False)
+        self.update_button.setText(self.t("update.checking"))
+        check, bridge = self.update_checker, self.update_bridge
+
+        def work() -> None:
+            result = check()
+            with contextlib.suppress(RuntimeError):  # the window was closed meanwhile
+                bridge.checked.emit(result)
+
+        # A daemon thread: closing the window never waits for a slow network.
+        threading.Thread(target=work, name="update-check", daemon=True).start()
+
+    def _on_update_checked(self, result: UpdateCheck) -> None:
+        self.update_checking = False
+        self.update_button.setEnabled(True)
+        self.update_button.setText(self.t("button.check_update"))
+        if result.status is UpdateStatus.NEWER:
+            answer = self.message(
+                QMessageBox.Icon.Question,
+                APP_NAME,
+                self.t("update.newer", latest=result.latest, current=__version__),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                self.url_opener(result.url)
+        elif result.status is UpdateStatus.CURRENT:
+            text = self.t("update.current", version=__version__)
+            self.message(
+                QMessageBox.Icon.Information, APP_NAME, text, QMessageBox.StandardButton.Ok
+            )
+        else:
+            text = self.t("update.failed", error=result.error)
+            self.message(QMessageBox.Icon.Warning, APP_NAME, text, QMessageBox.StandardButton.Ok)
 
     # ------------------------------------------------------------------ window events
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:

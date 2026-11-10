@@ -16,6 +16,7 @@ from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QFileOpenEve
 from PySide6.QtWidgets import QApplication, QMessageBox
 from pytestqt.qtbot import QtBot
 
+from searchify_pdf import __version__
 from searchify_pdf.application.workflow import Choice, Decision
 from searchify_pdf.domain.jobs import Outcome
 from searchify_pdf.domain.settings import (
@@ -25,6 +26,7 @@ from searchify_pdf.domain.settings import (
     UiLanguage,
     WorkerMode,
 )
+from searchify_pdf.platform.updates import RELEASES_PAGE, UpdateCheck, UpdateStatus
 from searchify_pdf.storage.settings_location import Location, SettingsHome
 from searchify_pdf.storage.settings_repository import SETTINGS_FILE_NAME, SettingsRepository
 from searchify_pdf.ui import app as app_module
@@ -460,6 +462,48 @@ def test_install_launcher(qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "blocked"))
     window.install_launcher()
     assert "Could not add launcher" in window.message.shown[-1]  # type: ignore[attr-defined]
+
+
+def test_check_for_updates(qtbot: QtBot, tmp_path: Path) -> None:
+    window = make_window(qtbot, tmp_path)
+    assert window.update_button.text() == "Check for updates"
+    opened: list[str] = []
+    window.url_opener = opened.append
+    release = threading.Event()
+    page = f"{RELEASES_PAGE}/tag/v9.0.0"
+
+    def slow_check() -> UpdateCheck:
+        release.wait(10)
+        return UpdateCheck(UpdateStatus.NEWER, "9.0.0", page)
+
+    messages = Messages(Std.Yes, Std.No)
+    window.message = messages
+    window.update_checker = slow_check
+    window.check_for_updates()
+    assert not window.update_button.isEnabled()
+    assert window.update_button.text() == "Checking…"
+    window.retranslate()
+    assert window.update_button.text() == "Checking…"
+    window.check_for_updates()  # a second click while checking is ignored
+    release.set()
+    qtbot.waitUntil(window.update_button.isEnabled)
+    assert window.update_button.text() == "Check for updates"
+    assert opened == [page]
+    assert f"9.0.0 is available (you have {__version__})" in messages.shown[-1]
+    assert len(messages.shown) == 1
+
+    def answer(result: UpdateCheck) -> str:
+        window.update_checker = lambda: result
+        window.check_for_updates()
+        qtbot.waitUntil(window.update_button.isEnabled)
+        return messages.shown[-1]
+
+    assert "9.0.0 is available" in answer(UpdateCheck(UpdateStatus.NEWER, "9.0.0", page))
+    assert opened == [page]  # answered No
+    assert "is the latest version" in answer(UpdateCheck(UpdateStatus.CURRENT, "0.1.0"))
+    assert "Could not check for updates: offline" in answer(
+        UpdateCheck(UpdateStatus.FAILED, error="offline")
+    )
 
 
 def test_themes(qtbot: QtBot, tmp_path: Path) -> None:

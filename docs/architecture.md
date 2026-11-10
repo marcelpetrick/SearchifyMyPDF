@@ -16,14 +16,18 @@ C4Context
     System_Ext(fs, "Local / removable / network file systems", "Originals (read-only) and adjacent copies")
     System_Ext(desktop, "Linux desktop", "File manager, app menu launcher, drag & drop, xdg-open")
     System_Ext(search, "Desktop search / indexers", "Windows Search, GNOME Tracker, Baloo… index the embedded text")
+    System_Ext(github, "GitHub Releases API", "Latest published release (only on 'Check for updates')")
     Rel(user, app, "Drops files/folders, changes settings")
     Rel(admin, app, "searchify-pdf --cli / docker run")
     Rel(desktop, app, "Launches with dropped paths (%F)")
     Rel(app, fs, "Reads originals, publishes validated copies")
     Rel(search, fs, "Indexes searchable copies")
+    Rel(app, github, "One HTTPS GET, on request only")
 ```
 
-Nothing leaves the computer: no account, no telemetry, no upload. Optional statistics are
+Documents never leave the computer: no account, no telemetry, no upload. The only network
+request is the user-triggered update check (ADR 0014), which sends nothing but a generic
+client name. Optional statistics are
 stored beside the application.
 
 ## C2 — Containers (deployable units)

@@ -18,7 +18,8 @@
 #   3. --cli converts a synthetic scan and the copy contains the expected words,
 #   4. --check-text rates a correct OCR layer good and a garbled one poor (ADR 0013),
 #   5. --store-settings-in-profile writes to this platform's profile folder and the
-#      next run uses those settings (ADR 0012).
+#      next run uses those settings (ADR 0012),
+#   6. --check-update reaches GitHub over TLS with the OS certificate store (ADR 0014).
 # Writes OUT_DIR/searchify-pdf-VERSION-<os>-<arch>[.exe] plus .components.json and .sha256.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -128,4 +129,12 @@ test ! -e "${SMOKE}/app/searchify-pdf.settings.json"
 cp "${SMOKE}/docs/Invoice scan.pdf" "${SMOKE}/profiled/scan.pdf"
 env PATH="${SMOKE_PATH}" "${PROFILE_ENV[@]}" "${APP}" --cli --non-interactive "${SMOKE}/profiled"
 test -f "${SMOKE}/profiled/scan_ocr.pdf"
+
+# 6. Update check: TLS verification in the frozen executable against the real endpoint.
+#    A GitHub rate limit (HTTP 403/429) still proves the TLS handshake worked.
+if ! PATH="${SMOKE_PATH}" "${APP}" --check-update | tee "${SMOKE}/update.txt"; then
+    grep -Eq "HTTP Error (403|429)" "${SMOKE}/update.txt"
+    echo "update check rate-limited; TLS handshake succeeded"
+fi
+grep -Eq "is the latest version|is available|HTTP Error (403|429)" "${SMOKE}/update.txt"
 echo "native build ${NAME}${EXT}: smoke tests passed"

@@ -181,6 +181,7 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "button.revert": {EN: "Revert", DE: "Zurücksetzen"},
     "button.reset_stats": {EN: "Delete statistics", DE: "Statistik löschen"},
     "button.install_launcher": {EN: "Add to app menu", DE: "Zum Anwendungsmenü hinzufügen"},
+    "button.check_update": {EN: "Check for updates", DE: "Nach Updates suchen"},
     "column.file": {EN: "File", DE: "Datei"},
     "column.folder": {EN: "Folder", DE: "Ordner"},
     "column.status": {EN: "Status", DE: "Status"},
@@ -413,6 +414,23 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "launcher.installed": {
         EN: "Added to the app menu. You can now drop PDFs or folders onto the Searchify PDF launcher.",
         DE: "Zum Anwendungsmenü hinzugefügt. Sie können jetzt PDFs oder Ordner auf den Searchify-PDF-Starter ziehen.",
+    },
+    "update.checking": {EN: "Checking…", DE: "Wird geprüft…"},
+    "update.newer": {
+        EN: "Searchify PDF {latest} is available (you have {current}).\n\nOpen the download page in your browser?",
+        DE: "Searchify PDF {latest} ist verfügbar (installiert: {current}).\n\nDownload-Seite im Browser öffnen?",
+    },
+    "update.current": {
+        EN: "Searchify PDF {version} is the latest version.",
+        DE: "Searchify PDF {version} ist die neueste Version.",
+    },
+    "update.failed": {
+        EN: "Could not check for updates: {error}",
+        DE: "Die Suche nach Updates ist fehlgeschlagen: {error}",
+    },
+    "update.cli.newer": {
+        EN: "Searchify PDF {latest} is available (you have {current}): {url}",
+        DE: "Searchify PDF {latest} ist verfügbar (installiert: {current}): {url}",
     },
     "launcher.failed": {
         EN: "Could not add launcher: {error}",

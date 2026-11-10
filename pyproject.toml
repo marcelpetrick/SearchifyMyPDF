@@ -26,6 +26,7 @@ dependencies = [
     "pikepdf==10.18.0",
     "pypdfium2==5.15.2",
     "psutil==7.2.2",
+    "truststore==0.10.5",
 ]
 
 [project.optional-dependencies]

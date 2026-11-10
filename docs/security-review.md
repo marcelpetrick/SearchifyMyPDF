@@ -20,6 +20,7 @@ Leptonica and Tesseract parse untrusted input with the user's privileges.
 | 12 | Supply chain | Tampered language data / actions / dependencies | SHA-256 pinned tessdata, `uv.lock` with hashes (`--require-hashes` in Docker), actions pinned to SHAs, Dependabot | `scripts/fetch_tessdata.sh`, workflows |
 | 13 | Release tampering | Rebuilt or swapped binaries | Release promotes the exact tested artifact, verifies `SHA256SUMS`, draft for human review; Docker image with provenance + SBOM | `.github/workflows/release.yml`, `docker.yml` |
 | 14 | Docker | Container running as root on host files | Runs as uid 1000, no network needed (`--network none` in smoke test) | `scripts/docker_smoke.sh` |
+| 15 | Update check | Unwanted network traffic, spoofed answer, opening a hostile URL | Only on explicit request; one GET with a generic client name; TLS verified against the OS store; answer size-capped and schema-checked; pre-releases ignored; only this project's release URLs (https) are opened; nothing downloaded (ADR 0014) | `test_updates.py`, `test_open_url`, `test_check_for_updates`, native smoke step 6 |
 
 Residual risks (tracked as issues): memory-safety bugs in native parsers (keep dependencies
 current; consider seccomp/bubblewrap sandboxing of the worker); no binary signing yet.

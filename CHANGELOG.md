@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.22.0 — 2026-11-10
+
+- feat(update): user-triggered update check against the latest GitHub release, offers the download page (#2 stage 1)
+
 ## 0.21.3 — 2026-11-10
 
 - docs(readme): release badge tracks tag pushes only, coverage badge shows the measured 99.8 % / 99.4 %
