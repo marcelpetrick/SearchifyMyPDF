@@ -18,7 +18,8 @@ Collects, from the *actual* build environment:
   its installed ``LICENSE`` and ``VERSION`` files;
 * the bundled trained language data with SHA-256 checksums.
 
-Runs on Debian/Ubuntu build hosts; native entries are skipped where ``dpkg`` is absent.
+On Debian/Ubuntu build hosts native libraries are resolved through ``dpkg``; on Windows and
+macOS (no ``dpkg``) the bundled Tesseract and Leptonica are reported from ``tesseract --version``.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import re
 import shutil
@@ -154,10 +156,34 @@ def trimmed_icu_data(target: Path, icu_dir: Path = TRIMMED_ICU_DIR) -> list[Comp
     ]
 
 
+def packaged_tesseract(tesseract: str) -> list[Component]:
+    """Tesseract and Leptonica from a platform package manager (Windows/macOS builds)."""
+    lines = run([tesseract, "--version"]).splitlines()
+    version = lines[0].removeprefix("tesseract ").strip() if lines else "unknown"
+    leptonica = next(
+        (line.split("leptonica-")[1].split()[0] for line in lines if "leptonica-" in line),
+        "unknown",
+    )
+    return [
+        Component(
+            "Tesseract OCR",
+            version,
+            "Apache-2.0",
+            "https://github.com/tesseract-ocr/tesseract",
+            kind="native",
+        ),
+        Component(
+            "Leptonica", leptonica, "BSD-2-Clause", "http://www.leptonica.org/", kind="native"
+        ),
+    ]
+
+
 def native_components(target: Path) -> list[Component]:
-    tesseract = shutil.which("tesseract")
-    if tesseract is None or shutil.which("dpkg") is None:
+    tesseract = os.environ.get("SEARCHIFY_TESSERACT") or shutil.which("tesseract")
+    if tesseract is None:
         return []
+    if shutil.which("dpkg") is None:
+        return packaged_tesseract(tesseract)
     libs = [tesseract]
     for line in run(["ldd", tesseract]).splitlines():
         match = re.search(r"=>\s+(/\S+)", line)

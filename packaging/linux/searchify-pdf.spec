@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
-# PyInstaller spec: one-file Linux executable with bundled Tesseract and language data.
-# Inputs come from environment variables set by build_in_container.sh.
+# PyInstaller spec: one-file executable with bundled Tesseract and language data.
+# Linux: built in a container by build_in_container.sh. Windows/macOS: built natively by
+# scripts/build_native_binary.sh. Inputs come from environment variables.
+import glob
 import os
 import shutil
+import sys
 
 from PyInstaller.utils.hooks import collect_data_files
 
@@ -11,7 +14,8 @@ name = os.environ["SEARCHIFY_BINARY_NAME"]
 tessdata = os.environ["SEARCHIFY_TESSDATA"]
 inventory = os.environ["SEARCHIFY_INVENTORY"]
 licenses = os.environ["SEARCHIFY_LICENSES"]
-tesseract = shutil.which("tesseract")
+tesseract = os.environ.get("SEARCHIFY_TESSERACT") or shutil.which("tesseract")
+assert tesseract, "tesseract not found"
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))  # noqa: F821 - set by PyInstaller
 
 datas = [
@@ -25,10 +29,17 @@ datas += collect_data_files("ocrmypdf")
 datas += collect_data_files("pikepdf")
 datas += collect_data_files("pypdfium2_raw")
 
+# Windows: tesseract.exe loads its DLLs from its own folder, so they travel with it into
+# bin/. Linux/macOS: PyInstaller resolves the shared-library dependencies itself.
+tesseract_binaries = [(tesseract, "bin")]
+if sys.platform == "win32":
+    tesseract_dir = os.path.dirname(tesseract)
+    tesseract_binaries += [(dll, "bin") for dll in glob.glob(os.path.join(tesseract_dir, "*.dll"))]
+
 a = Analysis(
     [os.path.join(ROOT, "packaging/linux/entry.py")],
     pathex=[os.path.join(ROOT, "src")],
-    binaries=[(tesseract, "bin")],
+    binaries=tesseract_binaries,
     datas=datas,
     hiddenimports=[
         "searchify_pdf.engines.worker",
@@ -89,7 +100,9 @@ exe = EXE(
     [],
     name=name,
     debug=False,
-    strip=True,  # drop symbol tables of bundled native libraries (PLAN step 26)
+    # Drop symbol tables of bundled native libraries (PLAN step 26). Linux only: there is
+    # no strip on Windows, and on macOS it would invalidate the (ad-hoc) code signatures.
+    strip=sys.platform.startswith("linux"),
     upx=False,
     console=True,
     runtime_tmpdir=None,

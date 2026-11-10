@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.17.7 — 2026-11-10
+
+- ci(native): build and smoke-test Windows and macOS executables on GitHub runners
+
 ## 0.17.6 — 2026-11-10
 
 - build(linux): retry flaky mirror downloads when building the builder image

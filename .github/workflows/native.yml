@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Native Windows and macOS executables (preview, PLAN M3/M4): built on GitHub-hosted
+# runners by scripts/build_native_binary.sh, which also smoke-tests the built executable
+# (version, licenses, offscreen GUI drop, CLI conversion with the bundled Tesseract).
+# Called by the Release workflow; also runs on main so platform breakage shows early.
+name: Native builds
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x86-64
+            os: windows-2022
+            artifact: searchify-pdf-windows-x86_64
+          - name: macOS arm64 (Apple silicon)
+            os: macos-14
+            artifact: searchify-pdf-macos-arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - name: Install Tesseract (Chocolatey)
+        if: runner.os == 'Windows'
+        run: choco install tesseract --no-progress -y
+      - name: Install Tesseract, bash and coreutils (Homebrew)
+        if: runner.os == 'macOS'
+        run: brew install tesseract bash coreutils
+      - name: Build and smoke-test the executable
+        run: scripts/build_native_binary.sh dist/binary
+      - name: Upload executable
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/binary/
+          if-no-files-found: error
