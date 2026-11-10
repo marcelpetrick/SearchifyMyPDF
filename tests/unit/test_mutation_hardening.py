@@ -94,6 +94,7 @@ def test_to_json_is_complete_and_exact() -> None:
         "ui_language": "en",
         "timeout_seconds": 1800,
         "process_restricted_pdfs": False,
+        "cross_check_existing_text": True,
     }
     assert migrate({"schema_version": 1})["schema_version"] == SCHEMA_VERSION
     assert migrate({})["previous_suffixes"] == []
@@ -203,7 +204,7 @@ def test_settings_file_format_and_lock(tmp_path: Path) -> None:
     repo = SettingsRepository(tmp_path)
     repo.save(Settings(), None)
     raw = (tmp_path / SETTINGS_FILE_NAME).read_text()
-    assert raw.endswith("}\n") and raw.startswith('{\n  "deskew"')
+    assert raw.endswith("}\n") and raw.startswith('{\n  "cross_check_existing_text"')
     assert json.loads(raw) == Settings().to_json()
     assert sorted(p.name for p in tmp_path.iterdir()) == [SETTINGS_FILE_NAME]  # lock removed
     loaded = repo.load()

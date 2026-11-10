@@ -68,3 +68,21 @@ The earlier synthetic German fixtures avoided umlauts ("dreissig") because Pillo
 font cannot draw them, so this was not caught before; the quality documents use the
 DejaVu fonts in `tests/fixtures/fonts` (provenance in `SOURCES.md`). Old print stays
 below 100 %: ligatures, hyphenation and 1950s typefaces cause the remaining misses.
+
+## Existing-text cross-check (PLAN step 34, ADR 0013)
+
+Agreement between a PDF's existing text and a fresh recognition of up to 3 pages
+(`TesseractTextChecker`, eng+deu, 200 dpi; Dice coefficient of the word multisets).
+
+| Document | Agreement | Verdict |
+| --- | --- | --- |
+| Scan with a correct invisible OCR layer (synthetic) | 100 % | good |
+| Born-digital text (synthetic, Helvetica) | 100 % | good |
+| Scan whose OCR layer has one of three lines garbled | 63 % | doubtful |
+| Scan with a fully garbled OCR layer | 0 % | poor |
+| Real 1950 Bundesgesetzblatt, publisher's text layer, 2 pages | 86 % | good |
+
+Time: rendering a dense 1950 page at 200 dpi 0.8 s, recognizing it 2.6 s with a
+single-threaded Tesseract; the sampled pages are recognized in parallel. The system
+Tesseract with OpenMP took 10.0 s for the same page when not limited to one thread
+(`OMP_THREAD_LIMIT=1` is set for the check, like OCRmyPDF does for conversions).

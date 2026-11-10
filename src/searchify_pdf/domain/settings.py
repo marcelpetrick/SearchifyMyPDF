@@ -86,6 +86,9 @@ class Settings:
     # Owner-restricted PDFs (open without a password, but forbid e.g. copying text) are
     # rejected unless enabled; the copy keeps the same restrictions (ADR 0011).
     process_restricted_pdfs: bool = False
+    # "Ask me" for existing text: first compare up to three pages with a fresh
+    # recognition and show how well they agree (#6, domain/text_quality.py).
+    cross_check_existing_text: bool = True
 
     def __post_init__(self) -> None:
         validate(self)
@@ -123,6 +126,7 @@ class Settings:
             "ui_language": self.ui_language.value,
             "timeout_seconds": self.timeout_seconds,
             "process_restricted_pdfs": self.process_restricted_pdfs,
+            "cross_check_existing_text": self.cross_check_existing_text,
         }
 
 
@@ -150,6 +154,7 @@ def validate(settings: Settings) -> None:
         settings.rotate_pages,
         settings.statistics_enabled,
         settings.process_restricted_pdfs,
+        settings.cross_check_existing_text,
     ):
         if not isinstance(flag, bool):
             raise SettingsError("flag_invalid", repr(flag))

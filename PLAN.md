@@ -112,6 +112,10 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     default; when the app folder is read-only the user may explicitly move the settings
     to the profile folder (GUI button with confirmation, `--store-settings-in-profile`);
     a settings file beside the app always wins. Unit, UI and packaged E2E tests.
+34. ✅ **Existing-text quality cross-check (#6, requested 2026-11-10, ADR 0013):** "Ask me"
+    compares up to 3 text pages with a fresh recognition and shows the agreement
+    (good ≥ 85 %, poor < 50 %) in the prompt; kept doubtful/poor text gets a note;
+    `--check-text` reports per PDF without writing. Real-OCR integration tests.
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
@@ -212,3 +216,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.19.2 | 2026-11-10 | docs(plan): record the first public release v0.19.1 with all three platforms |
 | 0.19.3 | 2026-11-10 | build(deps): uv 0.13.7, Tesseract 5.5.4 (Linux), pinned Chocolatey Tesseract 5.5.3, markdown-it-py 4.3.0, mdit-py-plugins 0.7.0, pyinstaller-hooks-contrib 2026.10 |
 | 0.20.0 | 2026-11-10 | feat(settings): opt-in user-profile settings when the app folder is read-only, portable stays the default (#9) |
+| 0.21.0 | 2026-11-10 | feat(ocr): cross-check existing text against a fresh recognition before asking, and --check-text review (#6) |

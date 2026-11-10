@@ -39,6 +39,7 @@ from searchify_pdf.engines.base import (
     EngineRequest,
     EngineResult,
     OcrMode,
+    TextChecker,
 )
 from searchify_pdf.engines.worker import WORKER_FLAG
 
@@ -157,6 +158,11 @@ class OcrmypdfEngine:
             supports_redo=True,
             redo_supports_deskew=False,
         )
+
+    def text_checker(self, languages: tuple[str, ...]) -> TextChecker:
+        from searchify_pdf.engines.text_check import TesseractTextChecker
+
+        return TesseractTextChecker(languages, tesseract=self._tesseract)
 
     def readiness_problem(self, languages: Sequence[str]) -> tuple[Reason, str] | None:
         version, available = self._tesseract_info

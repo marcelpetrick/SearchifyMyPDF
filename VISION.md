@@ -96,7 +96,7 @@ These govern the generated copy, never editing the source. Preserve born-digital
 
 For mixed PDFs, make the policy page-aware. Preserving existing text must still allow image-only pages to receive OCR. Pages containing both digital text and scanned regions require careful engine handling; document limitations rather than claiming a blanket skip-text mode recognizes every image region.
 
-A “cross-check OCR quality” function is deferred unless needed to implement the policy accurately. Presence of text does not prove its quality. The three-way policy is required even without an automated quality score.
+A “cross-check OCR quality” function is deferred unless needed to implement the policy accurately. Presence of text does not prove its quality. The three-way policy is required even without an automated quality score. Decision (issue #6, ADR 0013): “Ask me” first compares up to three pages with a fresh recognition and shows the agreement as a review aid; the user still decides, and `--check-text` reports it without writing anything.
 
 ### 4.2 Existing destination copy
 
@@ -303,7 +303,7 @@ Deliver and test Intel and Apple Silicon applications, native open/drop events, 
 | Additional OCR languages | Manage packs with verified provenance; script-aware quality tests and offline behavior |
 | Language detection | Evaluate page-level mixed-language handling; never infer an entire document solely from its first page |
 | Additional engines | Implement adapter without rewriting UI/workflow; compare accuracy, speed, licensing |
-| Existing-OCR quality cross-check | Meaningful quality signals and user review; avoid treating text presence as quality |
+| Existing-OCR quality cross-check | Meaningful quality signals and user review; avoid treating text presence as quality — implemented as agreement with a fresh recognition (ADR 0013) |
 | Expanded desktop testing | Recruit Windows/macOS/Linux testers; publish repeatable test script and supported matrix |
 | Monetization exploration | Evaluate only after a useful prototype and user feedback; no account/payment machinery now |
 | Optional user-profile settings fallback | Consider only as explicit opt-in without breaking portable mode — implemented as such (ADR 0012) |

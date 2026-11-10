@@ -45,7 +45,9 @@ class PasswordPrompts:
     def existing_output(self, source: Path, destination: Path) -> None:
         return None
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> None:
+    def existing_text(
+        self, source: Path, text_pages: int, total_pages: int, quality: object = None
+    ) -> None:
         return None
 
     def password(self, source: Path, retry: bool) -> PasswordAnswer | None:

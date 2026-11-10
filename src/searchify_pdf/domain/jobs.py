@@ -65,6 +65,8 @@ class Reason(enum.StrEnum):
     ASK_NONINTERACTIVE = "ask_noninteractive"
     ALL_PAGES_HAVE_TEXT = "all_pages_have_text"
     DESKEW_DISABLED_FOR_REDO = "deskew_disabled_for_redo"
+    EXISTING_TEXT_DOUBTFUL = "existing_text_doubtful"  # kept text disagrees in part (#6)
+    EXISTING_TEXT_POOR = "existing_text_poor"  # kept text mostly disagrees (#6)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

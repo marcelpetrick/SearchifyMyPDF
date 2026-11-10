@@ -19,6 +19,7 @@ from searchify_pdf.domain.settings import (
     Settings,
     WorkerMode,
 )
+from searchify_pdf.domain.text_quality import UNKNOWN, TextQuality, Verdict
 from searchify_pdf.engines.base import EngineRequest, OcrMode
 from searchify_pdf.engines.pdf_inspect import has_marker
 from searchify_pdf.storage.locks import FileLock
@@ -208,6 +209,96 @@ def test_existing_text_ask_batch_and_cancel(tmp_path: Path) -> None:
         p.unlink()
     cancelled = runner(ask, decisions=ScriptedDecisions(text=[CANCEL])).run([a, b])
     assert [r.outcome for r in cancelled.results] == [Outcome.CANCELLED, Outcome.CANCELLED]
+
+
+POOR = TextQuality(0.2, 1, Verdict.POOR)
+DOUBTFUL = TextQuality(0.7, 1, Verdict.DOUBTFUL)
+GOOD = TextQuality(0.98, 1, Verdict.GOOD)
+
+
+def test_ask_shows_the_cross_check_and_notes_kept_poor_text(tmp_path: Path) -> None:
+    """#6: the check runs before asking; keeping doubtful/poor text leaves a note."""
+    digital = synthetic.digital_pdf(tmp_path / "digital.pdf")
+    mixed = synthetic.mixed_pdf(tmp_path / "mixed.pdf")
+    scan = synthetic.scanned_pdf(tmp_path / "scan.pdf")
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    engine = FakeEngine(quality=POOR)
+    decisions = ScriptedDecisions(text=[NO, YES])
+    summary = runner(ask, engine, decisions=decisions).run([digital, mixed, scan])
+    assert engine.checked == [digital, mixed]  # the scan has no text: nothing to check
+    assert decisions.qualities == [POOR, POOR]
+    kept, replaced, scanned = summary.results
+    assert kept.outcome is Outcome.PRESERVED and kept.notes == (Reason.EXISTING_TEXT_POOR,)
+    assert replaced.outcome is Outcome.CONVERTED and replaced.notes == ()
+    assert scanned.notes == ()
+
+
+@pytest.mark.parametrize(
+    ("quality", "notes"),
+    [(DOUBTFUL, (Reason.EXISTING_TEXT_DOUBTFUL,)), (GOOD, ()), (UNKNOWN, ())],
+)
+def test_kept_text_notes_follow_the_verdict(
+    tmp_path: Path, quality: TextQuality, notes: tuple[Reason, ...]
+) -> None:
+    src = synthetic.mixed_pdf(tmp_path / "mixed.pdf")
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    summary = runner(ask, FakeEngine(quality=quality), decisions=ScriptedDecisions(text=[NO])).run(
+        [src]
+    )
+    assert summary.results[0].outcome is Outcome.CONVERTED
+    assert summary.results[0].notes == notes
+
+
+def test_noninteractive_ask_still_runs_no_prompt(tmp_path: Path) -> None:
+    src = synthetic.digital_pdf(tmp_path / "a.pdf")
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    engine = FakeEngine(quality=POOR)
+    summary = runner(ask, engine).run([src])
+    assert summary.results[0].outcome is Outcome.ACTION_REQUIRED
+    assert engine.checked == [src]
+
+
+def test_cross_check_skipped_when_disabled_policy_fixed_or_replacing_anyway(
+    tmp_path: Path,
+) -> None:
+    a = synthetic.digital_pdf(tmp_path / "a.pdf")
+    b = synthetic.digital_pdf(tmp_path / "b.pdf")
+    off = Settings(existing_text_policy=ExistingTextPolicy.ASK, cross_check_existing_text=False)
+    engine = FakeEngine(quality=POOR)
+    decisions = ScriptedDecisions(text=[NO, NO])
+    summary = runner(off, engine, decisions=decisions).run([a, b])
+    assert engine.checked == [] and decisions.qualities == [None, None]
+    assert all(r.notes == () for r in summary.results)
+    for policy in (ExistingTextPolicy.NEVER_REPLACE, ExistingTextPolicy.ALWAYS_REPLACE):
+        for p in tmp_path.glob("*_searchable.pdf"):
+            p.unlink()
+        runner(Settings(existing_text_policy=policy), engine).run([a])
+        assert engine.checked == []
+    for p in tmp_path.glob("*_searchable.pdf"):
+        p.unlink()
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    runner(ask, engine, decisions=ScriptedDecisions(text=[YES_ALL])).run([a, b])
+    assert engine.checked == [a]  # "replace all": the second document is not checked
+
+
+def test_keep_for_the_batch_still_notes_poor_text(tmp_path: Path) -> None:
+    a = synthetic.digital_pdf(tmp_path / "a.pdf")
+    b = synthetic.digital_pdf(tmp_path / "b.pdf")
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    engine = FakeEngine(quality=POOR)
+    decisions = ScriptedDecisions(text=[NO_ALL])
+    summary = runner(ask, engine, decisions=decisions).run([a, b])
+    assert len(decisions.asked) == 1 and engine.checked == [a, b]
+    assert [r.notes for r in summary.results] == [(Reason.EXISTING_TEXT_POOR,)] * 2
+
+
+def test_looks_generated_note_comes_first(tmp_path: Path) -> None:
+    src = synthetic.mixed_pdf(tmp_path / "scan_searchable.pdf")  # selected explicitly
+    ask = Settings(existing_text_policy=ExistingTextPolicy.ASK)
+    summary = runner(ask, FakeEngine(quality=POOR), decisions=ScriptedDecisions(text=[NO])).run(
+        [src]
+    )
+    assert summary.results[0].notes == (Reason.LOOKS_GENERATED, Reason.EXISTING_TEXT_POOR)
 
 
 @pytest.mark.parametrize(

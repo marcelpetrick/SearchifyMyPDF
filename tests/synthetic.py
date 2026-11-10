@@ -5,6 +5,7 @@
 * ``scanned_pdf`` — image-only pages rendered from text (what a scanner produces).
 * ``digital_pdf`` — born-digital pages with a real text layer (Helvetica).
 * ``mixed_pdf`` — digital page(s) followed by scanned page(s).
+* ``ocr_layer_pdf`` — a scan with an invisible earlier-OCR text layer, correct or garbled.
 * ``degraded_scan_pdf`` — realistic scanner defects: skew, noise, blur, low contrast,
   low resolution, landscape, two columns, upside-down pages (``SCAN_VARIANTS``).
 * ``long_scanned_pdf`` — many pages (throughput, progress).
@@ -181,6 +182,49 @@ def mixed_pdf(
     pdf.pages.append(_digital_page(pdf, digital))
     with pikepdf.open(scan) as scanned_doc:
         pdf.pages.extend(scanned_doc.pages)
+        pdf.save(path)
+    scan.unlink()
+    return path
+
+
+REPORT_LINES = (
+    "Quarterly report for the northern district",
+    "Revenue increased while operating costs fell",
+    "Please send the signed contract and invoice",
+)
+GARBLED_LINES = (
+    "Qnartcrly rcp0rt f0r tbe n0rtbcrn d1strict",
+    "Rcvcnuc 1ncrcascd wb1lc 0pcrat1ng c0sts fcll",
+    "Plcasc scnd tbc s1gncd c0ntract aud 1nv01cc",
+)
+
+
+def ocr_layer_pdf(
+    path: Path,
+    image_lines: Sequence[str] = REPORT_LINES,
+    layer_lines: Sequence[str] = REPORT_LINES,
+) -> Path:
+    """A scan with an invisible OCR text layer (text render mode 3), like earlier OCR.
+
+    ``layer_lines`` different from ``image_lines`` model a poor earlier recognition.
+    """
+    scan = scanned_pdf(path.with_name(f".{path.name}.scan.pdf"), (image_lines,), dpi=200)
+    with pikepdf.open(scan) as pdf:
+        page = pdf.pages[0]
+        font = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica
+            )
+        )
+        resources = page.obj.Resources
+        if pikepdf.Name.Font not in resources:
+            resources.Font = pikepdf.Dictionary()
+        resources.Font.FOCR = font
+        ops = ["BT", "3 Tr", "/FOCR 14 Tf", "72 760 Td"]
+        for line in layer_lines:
+            ops += [f"({line}) Tj", "0 -24 Td"]
+        ops.append("ET")
+        page.contents_add(pdf.make_stream("\n".join(ops).encode()), prepend=False)
         pdf.save(path)
     scan.unlink()
     return path

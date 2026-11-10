@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.21.0 — 2026-11-10
+
+- feat(ocr): cross-check existing text against a fresh recognition before asking, and --check-text review (#6)
+
 ## 0.20.0 — 2026-11-10
 
 - feat(settings): opt-in user-profile settings when the app folder is read-only, portable stays the default (#9)

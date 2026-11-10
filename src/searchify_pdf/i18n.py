@@ -10,6 +10,7 @@ errors, progress and summaries. Unknown keys fall back to English, then to the k
 from __future__ import annotations
 
 from searchify_pdf.domain.settings import UiLanguage
+from searchify_pdf.domain.text_quality import TextQuality
 
 EN = UiLanguage.ENGLISH
 DE = UiLanguage.GERMAN
@@ -126,6 +127,35 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "reason.deskew_disabled_for_redo": {
         EN: "Straightening was skipped because existing text was replaced",
         DE: "Begradigen wurde übersprungen, weil vorhandener Text ersetzt wurde",
+    },
+    "reason.existing_text_doubtful": {
+        EN: "The kept existing text only partly matches a fresh recognition; replacing it may improve search",
+        DE: "Der behaltene Text stimmt nur teilweise mit einer neuen Erkennung überein; Ersetzen kann die Suche verbessern",
+    },
+    "reason.existing_text_poor": {
+        EN: "The kept existing text mostly differs from a fresh recognition; replacing it is recommended",
+        DE: "Der behaltene Text weicht größtenteils von einer neuen Erkennung ab; Ersetzen wird empfohlen",
+    },
+    "quality.good": {
+        EN: "A fresh recognition of {checked} page(s) agrees with the existing text on {percent} % of the words: it looks good.",
+        DE: "Eine neue Erkennung von {checked} Seite(n) stimmt bei {percent} % der Wörter mit dem vorhandenen Text überein: er wirkt gut.",
+    },
+    "quality.doubtful": {
+        EN: "A fresh recognition of {checked} page(s) agrees with the existing text on only {percent} % of the words: it looks doubtful.",
+        DE: "Eine neue Erkennung von {checked} Seite(n) stimmt nur bei {percent} % der Wörter mit dem vorhandenen Text überein: er wirkt zweifelhaft.",
+    },
+    "quality.poor": {
+        EN: "A fresh recognition of {checked} page(s) agrees with the existing text on only {percent} % of the words: it looks poor, replacing it is recommended.",
+        DE: "Eine neue Erkennung von {checked} Seite(n) stimmt nur bei {percent} % der Wörter mit dem vorhandenen Text überein: er wirkt schlecht, Ersetzen wird empfohlen.",
+    },
+    "quality.unknown": {
+        EN: "The quality of the existing text could not be checked (too little readable text on the sampled pages).",
+        DE: "Die Qualität des vorhandenen Texts konnte nicht geprüft werden (zu wenig lesbarer Text auf den geprüften Seiten).",
+    },
+    "check.no_text": {EN: "no existing text", DE: "kein vorhandener Text"},
+    "check.line": {
+        EN: "text on {text_pages} of {pages} page(s). {quality}",
+        DE: "Text auf {text_pages} von {pages} Seite(n). {quality}",
     },
     # --- application/UI -----------------------------------------------------------------
     "app.tagline": {EN: "Make scanned PDFs searchable.", DE: "Gescannte PDFs durchsuchbar machen."},
@@ -252,6 +282,10 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "policy.text.always_replace": {
         EN: "Always replace existing OCR text",
         DE: "Vorhandenen OCR-Text immer ersetzen",
+    },
+    "settings.cross_check": {
+        EN: "Before asking about existing text, compare up to 3 pages with a fresh recognition",
+        DE: "Vor der Frage nach vorhandenem Text bis zu 3 Seiten mit einer neuen Erkennung vergleichen",
     },
     "settings.restricted": {
         EN: "Also process PDFs with usage restrictions (the copy keeps them)",
@@ -392,3 +426,13 @@ def tr(key: str, language: UiLanguage = EN, /, **values: object) -> str:
     entry = MESSAGES.get(key)
     text = key if entry is None else entry.get(language) or entry[EN]
     return text.format(**values) if values else text
+
+
+def quality_text(quality: TextQuality, language: UiLanguage = EN) -> str:
+    """One sentence describing a text cross-check result (#6)."""
+    return tr(
+        f"quality.{quality.verdict.value}",
+        language,
+        checked=quality.pages_checked,
+        percent=quality.percent,
+    )

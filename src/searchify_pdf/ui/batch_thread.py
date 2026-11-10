@@ -19,6 +19,7 @@ from searchify_pdf import __version__
 from searchify_pdf.application.workflow import BatchRunner, Choice, Decision, PasswordAnswer
 from searchify_pdf.domain.jobs import BatchSummary, JobEvent
 from searchify_pdf.domain.settings import Settings
+from searchify_pdf.domain.text_quality import TextQuality
 from searchify_pdf.engines.base import OcrEngine
 
 Prompter = Callable[[str, dict[str, object]], Decision | PasswordAnswer]
@@ -59,9 +60,21 @@ class GuiDecisions:
     def existing_output(self, source: Path, destination: Path) -> Decision | None:
         return self._decision("output", {"source": str(source), "destination": str(destination)})
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
+    def existing_text(
+        self,
+        source: Path,
+        text_pages: int,
+        total_pages: int,
+        quality: TextQuality | None = None,
+    ) -> Decision | None:
         return self._decision(
-            "text", {"source": str(source), "text_pages": text_pages, "pages": total_pages}
+            "text",
+            {
+                "source": str(source),
+                "text_pages": text_pages,
+                "pages": total_pages,
+                "quality": quality,
+            },
         )
 
     def password(self, source: Path, retry: bool) -> PasswordAnswer | None:

@@ -39,6 +39,7 @@ from searchify_pdf.domain.jobs import (
 )
 from searchify_pdf.domain.paths import lock_path_for
 from searchify_pdf.domain.settings import ExistingOutputPolicy, ExistingTextPolicy, Settings
+from searchify_pdf.domain.text_quality import TextQuality, Verdict
 from searchify_pdf.engines.base import EngineRequest, OcrEngine, OcrMode
 from searchify_pdf.engines.pdf_inspect import (
     PdfInfo,
@@ -90,7 +91,15 @@ class DecisionProvider(Protocol):
 
     def existing_output(self, source: Path, destination: Path) -> Decision | None: ...
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None: ...
+    def existing_text(
+        self,
+        source: Path,
+        text_pages: int,
+        total_pages: int,
+        quality: TextQuality | None = None,
+    ) -> Decision | None:
+        """Replace the existing text? ``quality`` is the cross-check result, if one ran."""
+        ...
 
     def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
         """Ask for the password of ``source``; ``retry`` after a wrong one."""
@@ -103,7 +112,13 @@ class NonInteractiveDecisions:
     def existing_output(self, source: Path, destination: Path) -> Decision | None:
         return None
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
+    def existing_text(
+        self,
+        source: Path,
+        text_pages: int,
+        total_pages: int,
+        quality: TextQuality | None = None,
+    ) -> Decision | None:
         return None
 
     def password(self, source: Path, retry: bool) -> PasswordAnswer | None:
@@ -122,6 +137,10 @@ class _Plan:
 
 
 EventSink = Callable[[JobEvent], None]
+QUALITY_NOTES = {
+    Verdict.DOUBTFUL: Reason.EXISTING_TEXT_DOUBTFUL,
+    Verdict.POOR: Reason.EXISTING_TEXT_POOR,
+}
 NO_PAGES = PageCounts()
 
 
@@ -153,6 +172,11 @@ class BatchRunner:
         # Passwords given up front or entered during this batch, tried before asking
         # again (a folder of statements usually shares one). Memory only, never stored.
         self._passwords: list[str] = [p for p in dict.fromkeys(passwords) if p]
+        self.text_checker = (
+            engine.text_checker(settings.ocr_languages)
+            if settings.cross_check_existing_text
+            else None
+        )
 
     # -- public -------------------------------------------------------------------------
 
@@ -244,8 +268,9 @@ class BatchRunner:
             overwrite = True
 
         mode: OcrMode | None = OcrMode.PRESERVE_TEXT
+        notes: tuple[Reason, ...] = ()
         if info.any_text:
-            choice = self._text_choice(candidate, info)
+            choice, quality = self._text_choice(candidate, info)
             if choice is None:
                 return self._finish(
                     job_id, candidate, Outcome.ACTION_REQUIRED, Reason.ASK_NONINTERACTIVE
@@ -255,9 +280,13 @@ class BatchRunner:
                 return self._finish(job_id, candidate, Outcome.CANCELLED, Reason.CANCELLED)
             if choice is Choice.YES:
                 mode = OcrMode.REDO_OCR
-            elif info.all_text:
-                mode = None
-        notes = (Reason.LOOKS_GENERATED,) if candidate.looks_generated else ()
+            else:
+                if info.all_text:
+                    mode = None
+                note = QUALITY_NOTES.get(quality.verdict) if quality else None
+                notes = (note,) if note else ()
+        if candidate.looks_generated:
+            notes = (Reason.LOOKS_GENERATED, *notes)
         return _Plan(job_id, candidate, info, overwrite, mode, notes, self.clock())
 
     def _inspect(self, job_id: int, candidate: Candidate) -> PdfInfo | JobResult:
@@ -318,22 +347,28 @@ class BatchRunner:
             self._batch_output = decision.choice
         return decision.choice
 
-    def _text_choice(self, candidate: Candidate, info: PdfInfo) -> Choice | None:
+    def _text_choice(
+        self, candidate: Candidate, info: PdfInfo
+    ) -> tuple[Choice | None, TextQuality | None]:
+        """The existing-text decision and, for "Ask me", the cross-check behind it."""
         policy = self.settings.existing_text_policy
         if policy is ExistingTextPolicy.ALWAYS_REPLACE:
-            return Choice.YES
+            return Choice.YES, None
         if policy is ExistingTextPolicy.NEVER_REPLACE:
-            return Choice.NO
-        if self._batch_text is not None:
-            return self._batch_text
+            return Choice.NO, None
+        if self._batch_text is Choice.YES:  # replacing anyway: no need to check
+            return Choice.YES, None
+        quality = self.text_checker(candidate.source, info) if self.text_checker else None
+        if self._batch_text is not None:  # "keep" for the batch: the check still notes poor text
+            return self._batch_text, quality
         decision = self.decisions.existing_text(
-            candidate.source, info.text_page_count, info.page_count
+            candidate.source, info.text_page_count, info.page_count, quality
         )
         if decision is None:
-            return None
+            return None, quality
         if decision.apply_to_batch and decision.choice is not Choice.CANCEL:
             self._batch_text = decision.choice
-        return decision.choice
+        return decision.choice, quality
 
     # -- execution ---------------------------------------------------------------------
 

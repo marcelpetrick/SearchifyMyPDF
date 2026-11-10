@@ -302,3 +302,63 @@ def test_cancel_on_signals_is_a_noop_outside_the_main_thread() -> None:
     worker.start()
     worker.join()
     assert seen == [before]
+
+
+# -- existing-text cross-check (#6) --------------------------------------------------
+
+
+def test_terminal_prompt_shows_the_cross_check(tmp_path: Path) -> None:
+    from searchify_pdf.domain.text_quality import TextQuality, Verdict
+
+    digital = synthetic.digital_pdf(tmp_path / "d.pdf")
+    poor = FakeEngine(quality=TextQuality(0.12, 1, Verdict.POOR))
+    code, out = run(
+        ["--cli", "--on-existing-text", "ask", str(digital)], stdin=Tty("n\n"), engine=poor
+    )
+    assert code == cli.EXIT_OK
+    assert "on only 12 % of the words: it looks poor" in out
+    assert "mostly differs from a fresh recognition" in out  # note on the kept result
+    (tmp_path / "d_searchable.pdf").unlink()
+    code, out = run(
+        ["--cli", "--on-existing-text", "ask", "--no-cross-check", str(digital)],
+        stdin=Tty("n\n"),
+        engine=poor,
+    )
+    assert code == cli.EXIT_OK and "fresh recognition" not in out and poor.checked == [digital]
+
+
+def test_check_text_reports_and_writes_nothing(tmp_path: Path) -> None:
+    from searchify_pdf.domain.text_quality import TextQuality, Verdict
+
+    synthetic.digital_pdf(tmp_path / "digital.pdf")
+    synthetic.scanned_pdf(tmp_path / "scan.pdf")
+    synthetic.corrupt_pdf(tmp_path / "broken.pdf")
+    synthetic.encrypted_pdf(tmp_path / "locked.pdf", user_password="pw")
+    (tmp_path / "notes.txt").write_text("x")
+    before = sorted(p.name for p in tmp_path.iterdir())
+    passwords = tmp_path.parent / "pw.txt"
+    passwords.write_text("wrong\npw\n")
+    good = FakeEngine(quality=TextQuality(0.97, 1, Verdict.GOOD))
+    code, out = run(["--check-text", "--password-file", str(passwords), str(tmp_path)], engine=good)
+    assert code == cli.EXIT_OK
+    lines = {line.split(": ", 1)[0].rsplit("/", 1)[-1]: line for line in out.splitlines()}
+    assert "text on 1 of 1 page(s). A fresh recognition of 1 page(s)" in lines["digital.pdf"]
+    assert "97 %" in lines["digital.pdf"] and "looks good" in lines["digital.pdf"]
+    assert lines["scan.pdf"].endswith("no existing text")
+    assert lines["locked.pdf"].endswith("no existing text")  # unlocked with the 2nd password
+    assert "broken.pdf" in out
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
+    assert not good.requests  # nothing converted
+
+
+def test_check_text_without_a_checker_or_password(tmp_path: Path) -> None:
+    synthetic.digital_pdf(tmp_path / "digital.pdf")
+    synthetic.encrypted_pdf(tmp_path / "locked.pdf", user_password="pw")
+    code, out = run(["--check-text", "--gui", str(tmp_path)])  # never opens the window
+    assert code == cli.EXIT_OK
+    assert "could not be checked" in out
+    assert "locked.pdf: " in out and "password" in out.lower()
+    bad = tmp_path.parent / "bad.txt"
+    bad.write_text("nope\n")
+    code, out = run(["--check-text", "--password-file", str(bad), str(tmp_path / "locked.pdf")])
+    assert code == cli.EXIT_OK and "password" in out.lower()

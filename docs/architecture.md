@@ -60,11 +60,11 @@ flowchart LR
         WF["application/workflow — BatchRunner"]
         DISC["application/discovery"]
         SCHED["application/scheduler — worker plan, CPU budget"]
-        DOM["domain/ — Settings, policies, paths, outcomes, events"]
+        DOM["domain/ — Settings, policies, paths, outcomes, events, text quality"]
         I18N["i18n — EN/DE catalogs"]
     end
     subgraph infra["Infrastructure"]
-        ENG["engines/ — OcrEngine protocol, OCRmyPDF adapter, worker, pdf_inspect"]
+        ENG["engines/ — OcrEngine protocol, OCRmyPDF adapter, worker, pdf_inspect, text_check"]
         PUB["storage/publisher — staging, validation, no-clobber publish"]
         SREPO["storage/settings_repository"]
         SLOC["storage/settings_location — portable / opted-in profile (ADR 0012)"]

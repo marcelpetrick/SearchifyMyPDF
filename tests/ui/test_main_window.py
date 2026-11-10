@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -786,3 +787,47 @@ def test_create_window_passes_the_settings_home(qtbot: QtBot, tmp_path: Path) ->
     _app, window = app_module.create_window(Settings(), [], home.app_dir, home=home)
     qtbot.addWidget(window)
     assert window.home is home
+
+
+# -- existing-text cross-check (#6) --------------------------------------------------
+
+
+def test_text_question_includes_the_cross_check(qtbot: QtBot, tmp_path: Path) -> None:
+    from searchify_pdf.domain.text_quality import TextQuality, Verdict
+
+    window = make_window(qtbot, tmp_path)
+    payload: dict[str, object] = {"source": "/x/scan.pdf", "text_pages": 2, "pages": 3}
+    plain = window.text_question(payload)
+    assert "“scan.pdf” already has text on 2 of 3" in plain and "fresh" not in plain
+    payload["quality"] = TextQuality(0.4, 2, Verdict.POOR)
+    assert window.text_question(payload).endswith(
+        "agrees with the existing text on only 40 % of the words: it looks poor, "
+        "replacing it is recommended."
+    )
+
+
+def test_cross_check_setting_round_trip(qtbot: QtBot, tmp_path: Path) -> None:
+    window = make_window(qtbot, tmp_path)
+    assert window.cross_check_box.isChecked()
+    assert window.cross_check_box.text().startswith("Before asking about existing text")
+    window.cross_check_box.setChecked(False)
+    assert window.dirty and window.save_settings()
+    assert not SettingsRepository(tmp_path).load().settings.cross_check_existing_text
+
+
+def test_gui_decisions_pass_the_quality_to_the_prompt(tmp_path: Path) -> None:
+    from searchify_pdf.domain.text_quality import UNKNOWN
+
+    seen: list[dict[str, object]] = []
+
+    class Bridge:  # stands in for _PromptBridge: emit() "answers" synchronously
+        def __init__(self) -> None:
+            self.request = self
+            self.answer: object = Decision(Choice.NO)
+
+        def emit(self, kind: str, payload: dict[str, object]) -> None:
+            seen.append(payload)
+
+    decisions = GuiDecisions(Bridge(), threading.Event())  # type: ignore[arg-type]
+    assert decisions.existing_text(tmp_path / "a.pdf", 1, 2, UNKNOWN) == Decision(Choice.NO)
+    assert seen[0]["quality"] is UNKNOWN

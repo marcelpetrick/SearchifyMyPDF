@@ -41,7 +41,9 @@ modified, and no Python or OCR installation is needed.
   output folders; originals are only read. Generated copies are recognised and never
   re-processed (`_searchable_searchable.pdf` cannot happen).
 - **Existing text:** keep it and only OCR image-only pages (default), always replace old
-  OCR (`--redo-ocr`, never rasterizing), or ask.
+  OCR (`--redo-ocr`, never rasterizing), or ask — the question shows how well the old
+  text agrees with a fresh recognition of up to 3 pages (good / doubtful / poor), and
+  `--check-text` reports that for a whole folder without writing anything.
 - **Existing copy:** overwrite, skip, or ask (default) — with "apply to the rest of this batch".
 - **Protected PDFs:** asks for the password (or reads `--password-file`) and protects the
   copy with the same password and permissions; PDFs with usage restrictions ("no copying")

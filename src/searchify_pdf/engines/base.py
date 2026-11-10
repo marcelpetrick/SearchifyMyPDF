@@ -7,10 +7,17 @@ from __future__ import annotations
 import dataclasses
 import enum
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from searchify_pdf.domain.jobs import Reason
+from searchify_pdf.domain.text_quality import TextQuality
+
+if TYPE_CHECKING:
+    from searchify_pdf.engines.pdf_inspect import PdfInfo
+
+TextChecker = Callable[[Path, "PdfInfo"], TextQuality]
 
 
 class OcrMode(enum.StrEnum):
@@ -57,3 +64,7 @@ class OcrEngine(Protocol):
         ...
 
     def run(self, request: EngineRequest, cancel: threading.Event) -> EngineResult: ...
+
+    def text_checker(self, languages: tuple[str, ...]) -> TextChecker | None:
+        """Cross-checks existing text layers (#6); None when the engine cannot."""
+        ...

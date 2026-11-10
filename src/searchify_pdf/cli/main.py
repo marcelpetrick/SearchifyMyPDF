@@ -26,8 +26,9 @@ from types import FrameType
 from typing import TextIO
 
 from searchify_pdf import APP_ID, __version__
+from searchify_pdf.application.discovery import discover
 from searchify_pdf.application.workflow import BatchRunner, Choice, Decision, PasswordAnswer
-from searchify_pdf.domain.jobs import BatchSummary, JobEvent, JobState, Outcome
+from searchify_pdf.domain.jobs import BatchSummary, JobEvent, JobState, Outcome, Reason
 from searchify_pdf.domain.settings import (
     MAX_FIXED_WORKERS,
     ExistingOutputPolicy,
@@ -37,8 +38,15 @@ from searchify_pdf.domain.settings import (
     UiLanguage,
     WorkerMode,
 )
+from searchify_pdf.domain.text_quality import UNKNOWN, TextQuality
 from searchify_pdf.engines.base import OcrEngine
-from searchify_pdf.i18n import tr
+from searchify_pdf.engines.pdf_inspect import (
+    PdfInfo,
+    PdfInspectionError,
+    has_marker,
+    inspect_pdf,
+)
+from searchify_pdf.i18n import quality_text, tr
 from searchify_pdf.platform.app_location import HOME_OVERRIDE
 from searchify_pdf.platform.components import load_inventory
 from searchify_pdf.platform.desktop import (
@@ -105,6 +113,19 @@ def build_parser() -> argparse.ArgumentParser:
         "(the copy keeps the password); avoids prompts, e.g. in Docker",
     )
     parser.add_argument(
+        "--cross-check",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="with 'ask' for existing text: first compare up to 3 pages with a fresh "
+        "recognition and show how well they agree (default on)",
+    )
+    parser.add_argument(
+        "--check-text",
+        action="store_true",
+        help="only report how good the existing text of each PDF is (compared with a "
+        "fresh recognition of up to 3 pages); writes nothing",
+    )
+    parser.add_argument(
         "--process-restricted",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -152,6 +173,8 @@ def apply_overrides(settings: Settings, args: argparse.Namespace) -> Settings:
         changes["rotate_pages"] = args.rotate_pages
     if args.process_restricted is not None:
         changes["process_restricted_pdfs"] = args.process_restricted
+    if args.cross_check is not None:
+        changes["cross_check_existing_text"] = args.cross_check
     if args.ui_language:
         changes["ui_language"] = UiLanguage(args.ui_language)
     if args.jobs:
@@ -225,16 +248,76 @@ class TerminalDecisions:
             return PasswordAnswer(Choice.NO)
         return PasswordAnswer(Choice.YES, secret)
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
-        return self._ask(
-            tr(
-                "ask.text.text",
-                self.language,
-                name=source.name,
-                text_pages=text_pages,
-                pages=total_pages,
-            )
+    def existing_text(
+        self,
+        source: Path,
+        text_pages: int,
+        total_pages: int,
+        quality: TextQuality | None = None,
+    ) -> Decision | None:
+        text = tr(
+            "ask.text.text",
+            self.language,
+            name=source.name,
+            text_pages=text_pages,
+            pages=total_pages,
         )
+        if quality is not None:
+            text += "\n" + quality_text(quality, self.language)
+        return self._ask(text)
+
+
+def _inspect_with(source: Path, passwords: Sequence[str]) -> PdfInfo:
+    """Inspect ``source``, trying the given passwords on a password-protected PDF."""
+    try:
+        return inspect_pdf(source)
+    except PdfInspectionError as error:
+        if error.reason is not Reason.PASSWORD_REQUIRED:
+            raise
+        last = error
+    for password in passwords:
+        try:
+            return inspect_pdf(source, password)
+        except PdfInspectionError as error:
+            if error.reason not in {Reason.PASSWORD_REQUIRED, Reason.WRONG_PASSWORD}:
+                raise
+            last = error
+    raise last
+
+
+def check_text(
+    settings: Settings,
+    paths: Sequence[Path],
+    engine: OcrEngine,
+    passwords: Sequence[str],
+    stdout: TextIO,
+) -> int:
+    """``--check-text``: report the quality of existing text layers, write nothing (#6)."""
+    language = settings.ui_language
+    found = discover(paths, settings.output_suffix, settings.known_suffixes, has_marker)
+    checker = engine.text_checker(settings.ocr_languages)
+    for candidate in found.candidates:
+        source = candidate.source
+        try:
+            info = _inspect_with(source, passwords)
+        except PdfInspectionError as error:
+            line = tr(f"reason.{error.reason.value}", language)
+        else:
+            if not info.any_text:
+                line = tr("check.no_text", language)
+            else:
+                quality = checker(source, info) if checker else UNKNOWN
+                line = tr(
+                    "check.line",
+                    language,
+                    text_pages=info.text_page_count,
+                    pages=info.page_count,
+                    quality=quality_text(quality, language),
+                )
+        stdout.write(f"{source}: {line}\n")
+    for omission in found.omissions:
+        stdout.write(f"{omission.path}: {tr(f'reason.{omission.reason.value}', language)}\n")
+    return EXIT_OK
 
 
 def summary_lines(summary: BatchSummary, language: UiLanguage) -> list[str]:
@@ -425,7 +508,7 @@ def main(
         from searchify_pdf.ui.app import smoke_test
 
         return smoke_test(settings, list(args.paths), app_dir)
-    use_gui = args.gui or (not args.cli and gui_available(os.environ))
+    use_gui = not args.check_text and (args.gui or (not args.cli and gui_available(os.environ)))
     if use_gui:
         if gui_launcher is None:
             from searchify_pdf.ui.app import run_gui
@@ -442,6 +525,8 @@ def main(
         except (OSError, UnicodeDecodeError) as exc:
             sys.stderr.write(f"{APP_ID}: cannot read --password-file: {exc}\n")
             return EXIT_USAGE
+    if args.check_text:
+        return check_text(settings, args.paths, engine_factory(), passwords, stdout)
     interactive = not args.non_interactive and stdin.isatty()
     return run_headless(
         settings,

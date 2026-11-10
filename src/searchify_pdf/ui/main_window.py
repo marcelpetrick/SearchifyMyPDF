@@ -55,8 +55,9 @@ from searchify_pdf.domain.settings import (
     UiLanguage,
     WorkerMode,
 )
+from searchify_pdf.domain.text_quality import TextQuality
 from searchify_pdf.engines.base import OcrEngine
-from searchify_pdf.i18n import tr
+from searchify_pdf.i18n import quality_text, tr
 from searchify_pdf.platform.components import load_inventory
 from searchify_pdf.platform.desktop import (
     default_data_home,
@@ -321,6 +322,9 @@ class MainWindow(QMainWindow):
         files_form.addRow(self.suffix_label, self.suffix_edit)
         self.suffix_example = named(QLabel(), "hint")
         files_form.addRow("", self.suffix_example)
+        self.cross_check_box = named(QCheckBox(), "crossCheck")
+        self.cross_check_box.toggled.connect(self._form_changed)
+        form.addRow("", self.cross_check_box)
         self.restricted_box = named(QCheckBox(), "restricted")
         self.restricted_box.toggled.connect(self._form_changed)
         files_form.addRow("", self.restricted_box)
@@ -482,6 +486,7 @@ class MainWindow(QMainWindow):
             self.output_policy_combo.setItemText(i, t(f"policy.output.{value}"))
         self.suffix_label.setText(t("settings.suffix"))
         self.restricted_box.setText(t("settings.restricted"))
+        self.cross_check_box.setText(t("settings.cross_check"))
         self.workers_label.setText(t("settings.workers"))
         for i in range(self.worker_combo.count()):
             self.worker_combo.setItemText(i, t(f"workers.{self.worker_combo.itemData(i)}"))
@@ -749,6 +754,19 @@ class MainWindow(QMainWindow):
             return PasswordAnswer(Choice.YES, field.text())
         return PasswordAnswer(chosen[0])
 
+    def text_question(self, payload: dict[str, object]) -> str:
+        """The existing-text question, with the cross-check result when one ran (#6)."""
+        text = self.t(
+            "ask.text.text",
+            name=Path(str(payload["source"])).name,
+            text_pages=payload["text_pages"],
+            pages=payload["pages"],
+        )
+        quality = payload.get("quality")
+        if isinstance(quality, TextQuality):
+            text += "\n\n" + quality_text(quality, self.lang)
+        return text
+
     def _prompt_dialog(
         self, kind: str, payload: dict[str, object]
     ) -> Decision | PasswordAnswer:  # pragma: no cover
@@ -764,14 +782,7 @@ class MainWindow(QMainWindow):
             no = box.addButton(self.t("ask.no_skip"), QMessageBox.ButtonRole.NoRole)
         else:
             box.setWindowTitle(self.t("ask.text.title"))
-            box.setText(
-                self.t(
-                    "ask.text.text",
-                    name=Path(str(payload["source"])).name,
-                    text_pages=payload["text_pages"],
-                    pages=payload["pages"],
-                )
-            )
+            box.setText(self.text_question(payload))
             yes = box.addButton(self.t("ask.yes_replace"), QMessageBox.ButtonRole.YesRole)
             no = box.addButton(self.t("ask.no_keep"), QMessageBox.ButtonRole.NoRole)
         box.addButton(self.t("ask.cancel_all"), QMessageBox.ButtonRole.RejectRole)
@@ -806,6 +817,7 @@ class MainWindow(QMainWindow):
             )
             self.suffix_edit.setText(settings.output_suffix)
             self.restricted_box.setChecked(settings.process_restricted_pdfs)
+            self.cross_check_box.setChecked(settings.cross_check_existing_text)
             self.worker_combo.setCurrentIndex(
                 self.worker_combo.findData(settings.worker_mode.value)
             )
@@ -834,6 +846,7 @@ class MainWindow(QMainWindow):
             existing_output_policy=ExistingOutputPolicy(self.output_policy_combo.currentData()),
             output_suffix=self.suffix_edit.text(),
             process_restricted_pdfs=self.restricted_box.isChecked(),
+            cross_check_existing_text=self.cross_check_box.isChecked(),
             worker_mode=WorkerMode(self.worker_combo.currentData()),
             fixed_workers=self.worker_spin.value(),
             theme=Theme(self.theme_combo.currentData()),

@@ -12,7 +12,14 @@ from pathlib import Path
 
 from searchify_pdf.application.workflow import Choice, Decision
 from searchify_pdf.domain.jobs import Reason
-from searchify_pdf.engines.base import EngineCapabilities, EngineRequest, EngineResult
+from searchify_pdf.domain.text_quality import TextQuality
+from searchify_pdf.engines.base import (
+    EngineCapabilities,
+    EngineRequest,
+    EngineResult,
+    TextChecker,
+)
+from searchify_pdf.engines.pdf_inspect import PdfInfo
 
 
 class FakeEngine:
@@ -25,7 +32,10 @@ class FakeEngine:
         delay: float = 0.0,
         ready: tuple[Reason, str] | None = None,
         writer: Callable[[EngineRequest], None] | None = None,
+        quality: TextQuality | None = None,
     ) -> None:
+        self.quality = quality  # what the text cross-check reports (None: no checker)
+        self.checked: list[Path] = []
         self.fail = fail
         self.delay = delay
         self.ready = ready
@@ -40,6 +50,17 @@ class FakeEngine:
 
     def readiness_problem(self, languages: tuple[str, ...]) -> tuple[Reason, str] | None:
         return self.ready
+
+    def text_checker(self, languages: tuple[str, ...]) -> TextChecker | None:
+        quality = self.quality
+        if quality is None:
+            return None
+
+        def check(source: Path, info: PdfInfo) -> TextQuality:
+            self.checked.append(source)
+            return quality
+
+        return check
 
     def run(self, request: EngineRequest, cancel: threading.Event) -> EngineResult:
         with self._lock:
@@ -73,13 +94,21 @@ class ScriptedDecisions:
         self.output = list(output or [])
         self.text = list(text or [])
         self.asked: list[tuple[str, Path]] = []
+        self.qualities: list[TextQuality | None] = []
 
     def existing_output(self, source: Path, destination: Path) -> Decision | None:
         self.asked.append(("output", source))
         return self.output.pop(0) if self.output else None
 
-    def existing_text(self, source: Path, text_pages: int, total_pages: int) -> Decision | None:
+    def existing_text(
+        self,
+        source: Path,
+        text_pages: int,
+        total_pages: int,
+        quality: TextQuality | None = None,
+    ) -> Decision | None:
         self.asked.append(("text", source))
+        self.qualities.append(quality)
         return self.text.pop(0) if self.text else None
 
 
