@@ -46,6 +46,46 @@ Status legend: ✅ done · 🟡 partial / limited evidence · ⏳ deferred (trac
 19. Mutation testing baseline (`docs/mutation-baseline.md`) + scheduled workflow.
 20. Docker image (CLI) published to GHCR.
 
+### M2b — Test depth and a smaller executable (requested 2026-11-10)
+Goal: prove more behaviour **on the shipped artifacts**, then shrink the Linux executable
+drastically **without losing any functionality** (all E2E tests stay green unchanged).
+
+Baseline (0.16.14): `searchify-pdf-0.16.14-linux-x86_64` = **133.6 MB** (788 entries,
+326 MB unpacked). Largest avoidable parts, measured with the PyInstaller archive reader:
+two ICU data copies (Qt ICU 73: 12.3 MB; Ubuntu ICU 70: 11.7 MB, pulled only by
+Tesseract → libarchive → libxml2), dev tools leaking into the bundle (hypothesis,
+mypy's `ast_serialize`, setuptools), unused optional codecs (Pillow AVIF), unstripped
+native libraries (−20 MB unpacked). PyInstaller only supports zlib; xz would give
+~96 MB but needs a self-extracting wrapper or AppImage/FUSE → rejected (UX, FUSE missing
+on stock Ubuntu 22.04+).
+
+Test data and E2E (first, so they guard the size work):
+21. **Fixtures:** more real-life public-domain / CC scans (different eras, layouts and
+    languages incl. German) with provenance in `tests/fixtures/real/SOURCES.md`; more
+    synthetic variants (skew, noise, low resolution, landscape, two columns, long
+    documents) in `tests/synthetic.py` and `scripts/generate_samples.py`.
+22. **Packaged E2E:** the binary converts the real-life corpus (expected words found);
+    `docker stop` cancels a packaged run cleanly (exit 1, no leftovers); interactive
+    terminal prompts (replace/skip/apply-to-all) through a pseudo-terminal.
+23. **Docker image E2E:** the same scenarios against the published image (corpus,
+    `/config` settings, `docker stop` cancel, non-root, offline).
+24. **Desktop launcher E2E:** install the desktop entry and launch it through
+    `gio launch` with files on a real X server (Xvfb) — exercises the `%F` path a file
+    manager uses. A physical drag in GNOME/KDE stays a manual check (#7).
+
+Size reduction (each step measured; E2E must pass before commit). Target: ≤ 100 MB
+(−25 %); Qt, Python, OCRmyPDF and Tesseract themselves are the irreducible core.
+25. Build environment with runtime dependencies + PyInstaller only (no dev group).
+26. Strip native libraries; exclude unused optional modules (Pillow AVIF, unused Qt
+    image formats / plugins) — only where tests prove the feature is unaffected.
+27. Bundle a Tesseract built from source without libarchive/curl/training tools
+    (drops libarchive, libxml2, ICU 70 …); inventory lists it as a source-built component.
+    Risk: Tesseract 4.1.1 → 5.x changes recognition slightly; the word checks on the
+    real-life corpus guard it. Cost: a few minutes more for an uncached builder image.
+28. Optional if still needed: a Qt ICU 73 data library trimmed to the locales the UI uses.
+29. Size budget gate (`scripts/check_binary_size.py`) in the pipeline so it cannot regress;
+    record before/after in `docs/benchmarks.md`.
+
 ### M3 / M4 — Windows, macOS
 Architecture keeps platform adapters separate; artifacts and native evidence are
 **not** produced yet (no claims of support). Tracked as deferred issues.
@@ -57,7 +97,7 @@ flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
 [`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
 
 Milestones: **M0 ✅ · M1 ✅ · M2 ✅ (Linux prerelease pending owner review of the draft) ·
-M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
+M2b 🔄 (steps 21–29) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
@@ -119,3 +159,4 @@ M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
 | 0.16.12 | 2026-11-10 | fix(cli): cancel headless runs cleanly on SIGINT and SIGTERM |
 | 0.16.13 | 2026-11-10 | fix(storage): never break a live same-host lock and age out foreign locks after the max timeout |
 | 0.16.14 | 2026-11-10 | test(storage): cover staging leftovers that cannot be deleted |
+| 0.16.15 | 2026-11-10 | docs(plan): plan more E2E coverage, real-life fixtures and a smaller executable |
