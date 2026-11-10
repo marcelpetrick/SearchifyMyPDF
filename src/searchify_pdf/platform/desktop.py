@@ -23,14 +23,14 @@ from searchify_pdf.platform.runtime import external_env
 
 DESKTOP_TEMPLATE = """[Desktop Entry]
 Type=Application
-Version=1.5
+Version=1.4
 Name={name}
 GenericName=PDF text recognition
 Comment=Make scanned PDFs searchable
 Exec={exec} %F
 Icon={icon}
 Terminal=false
-Categories=Office;Utility;
+Categories=Office;Viewer;
 MimeType=application/pdf;inode/directory;
 Keywords=OCR;PDF;scan;searchable;
 StartupWMClass=searchify-pdf
