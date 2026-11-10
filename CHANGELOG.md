@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.21.1 — 2026-11-10
+
+- ci(native): smoke-test the existing-text cross-check and the profile settings opt-in on Windows and macOS
+
 ## 0.21.0 — 2026-11-10
 
 - feat(ocr): cross-check existing text against a fresh recognition before asking, and --check-text review (#6)

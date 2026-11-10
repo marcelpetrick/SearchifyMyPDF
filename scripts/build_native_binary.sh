@@ -15,7 +15,10 @@
 # executable with the system Tesseract hidden from PATH:
 #   1. --version and --licenses,
 #   2. the GUI (offscreen Qt platform) converts a dropped folder,
-#   3. --cli converts a synthetic scan and the copy contains the expected words.
+#   3. --cli converts a synthetic scan and the copy contains the expected words,
+#   4. --check-text rates a correct OCR layer good and a garbled one poor (ADR 0013),
+#   5. --store-settings-in-profile writes to this platform's profile folder and the
+#      next run uses those settings (ADR 0012).
 # Writes OUT_DIR/searchify-pdf-VERSION-<os>-<arch>[.exe] plus .components.json and .sha256.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -94,4 +97,35 @@ text = all_text(Path(sys.argv[1]))
 print(repr(text))
 assert contains_words(text, ['Searchable', 'invoice', 'Payment', 'thirty']), text
 " "${SMOKE}/docs/Invoice scan_searchable.pdf"
+
+# 4. Existing-text cross-check with the bundled Tesseract.
+mkdir -p "${SMOKE}/layers"
+uv run --no-sync python -c "
+import sys; sys.path.insert(0, '.')
+from pathlib import Path
+from tests import synthetic
+folder = Path(sys.argv[1])
+synthetic.ocr_layer_pdf(folder / 'good.pdf')
+synthetic.ocr_layer_pdf(folder / 'garbled.pdf', layer_lines=synthetic.GARBLED_LINES)
+" "${SMOKE}/layers"
+PATH="${SMOKE_PATH}" "${APP}" --check-text "${SMOKE}/layers" | tee "${SMOKE}/check.txt"
+grep "good.pdf" "${SMOKE}/check.txt" | grep -q "looks good"
+grep "garbled.pdf" "${SMOKE}/check.txt" | grep -q "looks poor"
+test "$(find "${SMOKE}/layers" -type f | wc -l)" -eq 2  # nothing written
+
+# 5. Opt-in user-profile settings in the platform's real profile location.
+if [[ "${PLATFORM}" == windows-* ]]; then
+    PROFILE="${SMOKE}/appdata/Searchify PDF"
+    PROFILE_ENV=(APPDATA="$(cygpath -w "${SMOKE}/appdata")")
+else
+    PROFILE="${SMOKE}/home/Library/Application Support/Searchify PDF"
+    PROFILE_ENV=(HOME="${SMOKE}/home")
+fi
+mkdir -p "${SMOKE}/home" "${SMOKE}/appdata" "${SMOKE}/profiled"
+env PATH="${SMOKE_PATH}" "${PROFILE_ENV[@]}" "${APP}" --store-settings-in-profile --suffix _ocr
+grep -q '"output_suffix": "_ocr"' "${PROFILE}/searchify-pdf.settings.json"
+test ! -e "${SMOKE}/app/searchify-pdf.settings.json"
+cp "${SMOKE}/docs/Invoice scan.pdf" "${SMOKE}/profiled/scan.pdf"
+env PATH="${SMOKE_PATH}" "${PROFILE_ENV[@]}" "${APP}" --cli --non-interactive "${SMOKE}/profiled"
+test -f "${SMOKE}/profiled/scan_ocr.pdf"
 echo "native build ${NAME}${EXT}: smoke tests passed"

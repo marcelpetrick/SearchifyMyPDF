@@ -217,3 +217,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.19.3 | 2026-11-10 | build(deps): uv 0.13.7, Tesseract 5.5.4 (Linux), pinned Chocolatey Tesseract 5.5.3, markdown-it-py 4.3.0, mdit-py-plugins 0.7.0, pyinstaller-hooks-contrib 2026.10 |
 | 0.20.0 | 2026-11-10 | feat(settings): opt-in user-profile settings when the app folder is read-only, portable stays the default (#9) |
 | 0.21.0 | 2026-11-10 | feat(ocr): cross-check existing text against a fresh recognition before asking, and --check-text review (#6) |
+| 0.21.1 | 2026-11-10 | ci(native): smoke-test the existing-text cross-check and the profile settings opt-in on Windows and macOS |
