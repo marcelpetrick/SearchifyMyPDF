@@ -9,6 +9,7 @@ temporary extraction directory (``sys._MEIPASS``).
 from __future__ import annotations
 
 import os
+import platform
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -52,3 +53,26 @@ def current_application_directory() -> Path:
         executable=sys.executable,
         argv0=sys.argv[0] if sys.argv and sys.argv[0] else sys.executable,
     )
+
+
+def profile_directory(*, env: Mapping[str, str], system: str, home: Path) -> Path:
+    """The per-user configuration folder used only after an explicit opt-in (ADR 0012).
+
+    Windows ``%APPDATA%\\Searchify PDF``, macOS ``~/Library/Application Support/Searchify
+    PDF``, otherwise ``$XDG_CONFIG_HOME/searchify-pdf`` (``~/.config`` when unset or not
+    absolute, as the XDG specification requires).
+    """
+    if system == "Windows":
+        appdata = env.get("APPDATA")
+        base = Path(appdata) if appdata else home / "AppData" / "Roaming"
+        return base / "Searchify PDF"
+    if system == "Darwin":
+        return home / "Library" / "Application Support" / "Searchify PDF"
+    xdg = env.get("XDG_CONFIG_HOME", "")
+    base = Path(xdg) if xdg and Path(xdg).is_absolute() else home / ".config"
+    return base / "searchify-pdf"
+
+
+def current_profile_directory() -> Path:
+    """:func:`profile_directory` for the running process."""
+    return profile_directory(env=os.environ, system=platform.system(), home=Path.home())

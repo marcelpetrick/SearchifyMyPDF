@@ -22,6 +22,7 @@ from searchify_pdf import APP_ID, APP_NAME
 from searchify_pdf.domain.settings import Settings
 from searchify_pdf.engines.base import OcrEngine
 from searchify_pdf.platform.desktop import icon_bytes
+from searchify_pdf.storage.settings_location import SettingsHome, current_settings_home
 from searchify_pdf.storage.settings_repository import SettingsRepository
 from searchify_pdf.ui.main_window import FileOpenFilter, MainWindow
 from searchify_pdf.ui.theme import apply_theme
@@ -38,6 +39,7 @@ def create_window(
     paths: list[Path],
     app_dir: Path,
     engine_factory: Callable[[], OcrEngine] = _default_engine,
+    home: SettingsHome | None = None,
 ) -> tuple[QApplication, MainWindow]:
     existing = QApplication.instance()
     app = existing if isinstance(existing, QApplication) else QApplication(sys.argv[:1])
@@ -49,7 +51,9 @@ def create_window(
     repository = SettingsRepository(app_dir)
     saved = repository.load().settings
     overrides = settings if settings != saved else None
-    window = MainWindow(repository, engine_factory, run_overrides=overrides, app_dir=app_dir)
+    window = MainWindow(
+        repository, engine_factory, run_overrides=overrides, app_dir=app_dir, home=home
+    )
     apply_theme(app, window.saved.theme)
     app.installEventFilter(FileOpenFilter(window))
     if paths:
@@ -87,6 +91,7 @@ def smoke_test(
 
 
 def run_gui(settings: Settings, paths: list[Path], app_dir: Path) -> int:  # pragma: no cover
-    app, window = create_window(settings, paths, app_dir)
+    home = current_settings_home()
+    app, window = create_window(settings, paths, app_dir, home=home)
     window.show()
     return int(app.exec())

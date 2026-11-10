@@ -295,8 +295,40 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
         DE: "Die Einstellungsdatei konnte nicht gelesen werden ({error}); Standardwerte sind aktiv. Beim Speichern wird eine Sicherung der alten Datei behalten.",
     },
     "settings.readonly": {
-        EN: "Settings cannot be saved next to the app ({folder}). Move Searchify PDF to a folder you can write to, e.g. your home folder, and start it from there.",
-        DE: "Einstellungen können nicht neben der App gespeichert werden ({folder}). Verschieben Sie Searchify PDF in einen beschreibbaren Ordner, z. B. Ihren Benutzerordner, und starten Sie es dort.",
+        EN: "Settings cannot be saved next to the app ({folder}). Move Searchify PDF to a folder you can write to, e.g. your home folder, and start it from there, or choose to store the settings in your user profile.",
+        DE: "Einstellungen können nicht neben der App gespeichert werden ({folder}). Verschieben Sie Searchify PDF in einen beschreibbaren Ordner, z. B. Ihren Benutzerordner, und starten Sie es dort, oder speichern Sie die Einstellungen in Ihrem Benutzerprofil.",
+    },
+    "settings.profile.in_use": {
+        EN: "Settings are stored in your user profile ({folder}), as you chose. They no longer travel with the app; a settings file next to the app would take precedence.",
+        DE: "Die Einstellungen liegen wie gewählt in Ihrem Benutzerprofil ({folder}). Sie wandern nicht mehr mit der App; eine Einstellungsdatei neben der App hätte Vorrang.",
+    },
+    "button.to_profile": {
+        EN: "Store settings in my user profile",
+        DE: "Einstellungen im Benutzerprofil speichern",
+    },
+    "button.to_portable": {
+        EN: "Store settings next to the app again",
+        DE: "Einstellungen wieder neben der App speichern",
+    },
+    "ask.to_profile": {
+        EN: "Store the settings in your user profile ({folder})?\n\nThey will then no longer travel with the app. A settings file next to the app always takes precedence, so you can switch back at any time.",
+        DE: "Einstellungen in Ihrem Benutzerprofil speichern ({folder})?\n\nSie wandern dann nicht mehr mit der App. Eine Einstellungsdatei neben der App hat immer Vorrang, Sie können also jederzeit zurückwechseln.",
+    },
+    "ask.to_portable": {
+        EN: "Store the settings next to the app again ({folder})? From then on they travel with the app; the copy in your user profile is no longer used.",
+        DE: "Einstellungen wieder neben der App speichern ({folder})? Sie wandern dann wieder mit der App; die Kopie im Benutzerprofil wird nicht mehr verwendet.",
+    },
+    "settings.profile.stored": {
+        EN: "Settings stored in your user profile: {folder}",
+        DE: "Einstellungen im Benutzerprofil gespeichert: {folder}",
+    },
+    "settings.profile.shadowed": {
+        EN: "Note: the settings file next to the app ({folder}) takes precedence. Remove it to use the profile settings.",
+        DE: "Hinweis: Die Einstellungsdatei neben der App ({folder}) hat Vorrang. Entfernen Sie sie, um die Profil-Einstellungen zu verwenden.",
+    },
+    "settings.profile.overridden": {
+        EN: "{variable} is set, so settings are read from that folder and the user profile is not used.",
+        DE: "{variable} ist gesetzt, daher werden die Einstellungen aus diesem Ordner gelesen und das Benutzerprofil wird nicht verwendet.",
     },
     "settings.save_failed": {
         EN: "Saving failed ({code}). Your changes are still here; the previous settings file is unchanged.",

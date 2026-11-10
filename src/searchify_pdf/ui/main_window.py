@@ -64,6 +64,7 @@ from searchify_pdf.platform.desktop import (
     launch_command,
     open_folder,
 )
+from searchify_pdf.storage.settings_location import Location, SettingsHome, store_settings
 from searchify_pdf.storage.settings_repository import (
     LoadStatus,
     SettingsRepository,
@@ -141,9 +142,11 @@ class MainWindow(QMainWindow):
         *,
         run_overrides: Settings | None = None,
         app_dir: Path | None = None,
+        home: SettingsHome | None = None,
     ) -> None:
         super().__init__()
         self.repository = repository
+        self.home = home  # None: no switching between portable and profile settings
         self.app_dir = app_dir or repository.directory
         self.engine_factory = engine_factory
         self.stats_repo = StatisticsRepository(self.app_dir)
@@ -377,6 +380,12 @@ class MainWindow(QMainWindow):
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         outer.addWidget(self.settings_path_label)
+        location_row = QHBoxLayout()
+        self.location_button = named(QPushButton(), "location")
+        self.location_button.clicked.connect(self.relocate_settings)
+        location_row.addWidget(self.location_button)
+        location_row.addStretch(1)
+        outer.addLayout(location_row)
         outer.addStretch(1)
         self.tabs.addTab(page, "")
 
@@ -486,6 +495,13 @@ class MainWindow(QMainWindow):
         self.revert_button.setText(t("button.revert"))
         self.save_button.setText(t("button.save"))
         self.settings_path_label.setText(t("settings.file", path=self.repository.path))
+        target = self._relocation_target()
+        self.location_button.setVisible(target is not None)
+        if target is not None and self.home is not None:
+            to_profile = target == self.home.profile_dir
+            self.location_button.setText(
+                t("button.to_profile" if to_profile else "button.to_portable")
+            )
         self.reset_stats_button.setText(t("button.reset_stats"))
         self.about_label.setText(t("about.text", version=__version__))
         self.components_label.setText(t("about.components"))
@@ -859,10 +875,65 @@ class MainWindow(QMainWindow):
         notices = []
         if self.load_status is LoadStatus.MALFORMED:
             notices.append(self.t("settings.malformed", error=self.load_error))
-        if not self.repository.is_writable():
+        in_profile = self.home is not None and self.repository.directory == self.home.profile_dir
+        if in_profile:
+            notices.append(self.t("settings.profile.in_use", folder=self.repository.directory))
+        elif not self.repository.is_writable():
             notices.append(self.t("settings.readonly", folder=self.repository.directory))
         self.settings_notice.setText("\n".join(notices))
         self.settings_notice.setVisible(bool(notices))
+
+    def _relocation_target(self) -> Path | None:
+        """Where the location button would move the settings (ADR 0012), if anywhere.
+
+        Offered only when the portable folder cannot be written (→ user profile, the
+        explicit opt-in) or when the settings are in the profile and the app folder is
+        writable again (→ back next to the app). Never with ``SEARCHIFY_PDF_HOME``.
+        """
+        home = self.home
+        if home is None or home.location is Location.OVERRIDE:
+            return None
+        current = self.repository.directory
+        if current == home.app_dir and not self.repository.is_writable():
+            return home.profile_dir
+        if current == home.profile_dir and SettingsRepository(home.app_dir).is_writable():
+            return home.app_dir
+        return None
+
+    def relocate_settings(self) -> bool:
+        """Save the form's settings in the other location and use them from there."""
+        target = self._relocation_target()
+        if target is None or self.home is None:
+            return False
+        key = "ask.to_profile" if target == self.home.profile_dir else "ask.to_portable"
+        answer = self.message(
+            QMessageBox.Icon.Question,
+            APP_NAME,
+            self.t(key, folder=target),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return False
+        try:
+            new = self.form_settings()
+        except SettingsError as exc:
+            self.settings_status.setText(self.t("settings.invalid", detail=exc.code))
+            return False
+        try:
+            fingerprint = store_settings(target, new)
+        except (SettingsSaveError, OSError) as exc:
+            code = exc.code if isinstance(exc, SettingsSaveError) else type(exc).__name__
+            text = self.t("settings.save_failed", code=code)
+            self.settings_status.setText(text)
+            self.message(QMessageBox.Icon.Warning, APP_NAME, text, QMessageBox.StandardButton.Ok)
+            return False
+        self.repository = SettingsRepository(target)
+        self.fingerprint = fingerprint
+        self.app_dir = target
+        self.stats_repo = StatisticsRepository(target)
+        self._apply_saved(new)
+        self.settings_status.setText(self.t("settings.saved"))
+        return True
 
     def revert_settings(self) -> None:
         self._load_form(self.saved)

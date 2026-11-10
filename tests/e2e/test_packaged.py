@@ -150,6 +150,31 @@ def test_portable_settings_travel_with_app(tmp_path: Path) -> None:
     assert again.returncode == 0 and "1 skipped" in again.stdout
 
 
+def test_profile_settings_are_an_explicit_opt_in(tmp_path: Path) -> None:
+    """ADR 0012: a read-only app folder never falls back silently; after the opt-in the
+    settings live in the user's profile, and the app folder stays untouched."""
+    app, data = _app_dir(tmp_path), tmp_path / "data"
+    docs = data / "docs"
+    docs.mkdir(parents=True)
+    synthetic.scanned_pdf(docs / "a.pdf")
+    env = {"XDG_CONFIG_HOME": "/data/cfg"}
+    profile = data / "cfg" / "searchify-pdf" / "searchify-pdf.settings.json"
+    before = _docker(app, data, "--cli", "--suffix", "_x", "/data/docs", app_ro=True, env=env)
+    assert before.returncode == 0, before.stdout + before.stderr
+    assert not profile.exists()  # no silent profile fallback
+    (docs / "a_x.pdf").unlink()
+    opted = _docker(
+        app, data, "--store-settings-in-profile", "--suffix", "_ocr", app_ro=True, env=env
+    )
+    assert opted.returncode == 0, opted.stdout + opted.stderr
+    assert "/data/cfg/searchify-pdf" in opted.stdout
+    assert json.loads(profile.read_text())["output_suffix"] == "_ocr"
+    done = _docker(app, data, "--cli", "/data/docs", app_ro=True, env=env)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert (docs / "a_ocr.pdf").exists()
+    assert [p.name for p in app.iterdir()] == ["searchify-pdf"]
+
+
 def test_gui_drop_launch_offscreen(tmp_path: Path) -> None:
     app, data = _app_dir(tmp_path), tmp_path / "data"
     data.mkdir()

@@ -24,6 +24,7 @@ from searchify_pdf.domain.settings import (
     UiLanguage,
     WorkerMode,
 )
+from searchify_pdf.storage.settings_location import Location, SettingsHome
 from searchify_pdf.storage.settings_repository import SETTINGS_FILE_NAME, SettingsRepository
 from searchify_pdf.ui import app as app_module
 from searchify_pdf.ui import theme
@@ -676,3 +677,112 @@ def test_smoke_test_entry(qtbot: QtBot, tmp_path: Path, capsys: pytest.CaptureFi
     assert (
         app_module.smoke_test(Settings(), [bad], tmp_path, engine_factory=lambda: FakeEngine()) == 1
     )
+
+
+# -- opt-in user-profile settings (ADR 0012, issue #9) -------------------------------
+
+
+def profile_home(tmp_path: Path) -> SettingsHome:
+    app, profile = tmp_path / "app", tmp_path / "profile" / "searchify-pdf"
+    app.mkdir()
+    return SettingsHome(app, Location.PORTABLE, app, profile)
+
+
+def located_window(qtbot: QtBot, folder: Path, home: SettingsHome) -> MainWindow:
+    window = MainWindow(SettingsRepository(folder), FakeEngine, home=home)
+    window.message = Messages()
+    qtbot.addWidget(window)
+    return window
+
+
+def test_no_location_button_without_a_home_or_with_the_override(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(SettingsRepository, "is_writable", lambda self: False)
+    window = make_window(qtbot, tmp_path)
+    assert window.location_button.isHidden() and not window.relocate_settings()
+    override = SettingsHome(tmp_path, Location.OVERRIDE, tmp_path, tmp_path / "p")
+    window = located_window(qtbot, tmp_path, override)
+    assert window.location_button.isHidden()
+
+
+def test_writable_portable_folder_offers_no_profile(qtbot: QtBot, tmp_path: Path) -> None:
+    home = profile_home(tmp_path)
+    window = located_window(qtbot, home.app_dir, home)
+    assert window.location_button.isHidden()
+
+
+def test_read_only_app_folder_opts_in_to_the_profile_and_back(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = profile_home(tmp_path)
+    writable = {home.app_dir: False}
+    monkeypatch.setattr(
+        SettingsRepository, "is_writable", lambda self: writable.get(self.directory, True)
+    )
+    window = located_window(qtbot, home.app_dir, home)
+    assert not window.location_button.isHidden()
+    assert window.location_button.text() == "Store settings in my user profile"
+    assert "Move Searchify PDF" in window.settings_notice.text()
+
+    window.message = Messages(Std.No)  # declined: nothing written anywhere
+    assert not window.relocate_settings()
+    assert not home.profile_dir.exists()
+
+    window.suffix_edit.setText("_ocr")
+    window.message = Messages(Std.Yes)
+    assert window.relocate_settings()
+    assert "user profile" in window.message.shown[0]  # type: ignore[attr-defined]
+    assert window.repository.directory == home.profile_dir
+    assert SettingsRepository(home.profile_dir).load().settings.output_suffix == "_ocr"
+    assert not (home.app_dir / SETTINGS_FILE_NAME).exists()
+    assert "as you chose" in window.settings_notice.text()
+    assert str(home.profile_dir) in window.settings_path_label.text()
+    assert window.stats_repo.path.parent == home.profile_dir
+    assert not window.dirty
+    # saving now goes to the profile
+    window.suffix_edit.setText("_txt")
+    assert window.save_settings()
+    assert SettingsRepository(home.profile_dir).load().settings.output_suffix == "_txt"
+
+    # the app folder became writable: offer to go back
+    writable[home.app_dir] = True
+    window.retranslate()
+    assert window.location_button.text() == "Store settings next to the app again"
+    window.message = Messages(Std.Yes)
+    assert window.relocate_settings()
+    assert window.repository.directory == home.app_dir
+    assert SettingsRepository(home.app_dir).load().settings.output_suffix == "_txt"
+    assert window.location_button.isHidden()
+
+
+def test_relocation_reports_invalid_form_and_write_failures(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from searchify_pdf.ui import main_window
+
+    home = profile_home(tmp_path)
+    monkeypatch.setattr(SettingsRepository, "is_writable", lambda self: False)
+    window = located_window(qtbot, home.app_dir, home)
+    for box in window.language_boxes.values():
+        box.setChecked(False)
+    window.message = Messages(Std.Yes)
+    assert not window.relocate_settings()
+    assert "languages_empty" in window.settings_status.text()
+    window.language_boxes["eng"].setChecked(True)
+
+    def broken(*_: object) -> str:
+        raise PermissionError(13, "denied")
+
+    monkeypatch.setattr(main_window, "store_settings", broken)
+    window.message = Messages(Std.Yes)
+    assert not window.relocate_settings()
+    assert "PermissionError" in window.settings_status.text()
+    assert window.repository.directory == home.app_dir
+
+
+def test_create_window_passes_the_settings_home(qtbot: QtBot, tmp_path: Path) -> None:
+    home = profile_home(tmp_path)
+    _app, window = app_module.create_window(Settings(), [], home.app_dir, home=home)
+    qtbot.addWidget(window)
+    assert window.home is home

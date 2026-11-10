@@ -15,7 +15,7 @@ Status legend: ✅ done · 🟡 partial / limited evidence · ⏳ deferred (trac
 | Native drop | Linux `.desktop` launcher (`Exec=… %F`, PDF + folder MIME types); window drag & drop; file/folder pickers as fallback | 0005 |
 | Language data | tessdata_fast 4.1.0 eng + deu + osd, pinned by SHA-256 | 0006 |
 | Licensing | Project GPL-3.0-or-later; component inventory generated at build | 0007 |
-| Settings/statistics storage | Versioned JSON beside the app (`searchify-pdf.settings.json`, `searchify-pdf.statistics.json`) | 0008 |
+| Settings/statistics storage | Versioned JSON beside the app (`searchify-pdf.settings.json`, `searchify-pdf.statistics.json`); user profile only after an explicit opt-in | 0008, 0012 |
 | Generated-file detection & override | Suffix (current + previous) + PDF metadata marker | 0009 |
 
 ## Milestones
@@ -108,6 +108,10 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     public release with all three platforms and verifies the published assets.
     First public release: [v0.19.1](https://github.com/marcelpetrick/SearchifyMyPDF/releases/tag/v0.19.1)
     (Linux 90.8 MB, Windows 154.2 MB, macOS arm64 73.1 MB; rehearsed as a draft first).
+33. ✅ **Opt-in user-profile settings (#9, requested 2026-11-10, ADR 0012):** portable by
+    default; when the app folder is read-only the user may explicitly move the settings
+    to the profile folder (GUI button with confirmation, `--store-settings-in-profile`);
+    a settings file beside the app always wins. Unit, UI and packaged E2E tests.
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
@@ -207,3 +211,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.19.1 | 2026-11-10 | ci(release): verify drafts in the publish job and public releases with a read-only token |
 | 0.19.2 | 2026-11-10 | docs(plan): record the first public release v0.19.1 with all three platforms |
 | 0.19.3 | 2026-11-10 | build(deps): uv 0.13.7, Tesseract 5.5.4 (Linux), pinned Chocolatey Tesseract 5.5.3, markdown-it-py 4.3.0, mdit-py-plugins 0.7.0, pyinstaller-hooks-contrib 2026.10 |
+| 0.20.0 | 2026-11-10 | feat(settings): opt-in user-profile settings when the app folder is read-only, portable stays the default (#9) |

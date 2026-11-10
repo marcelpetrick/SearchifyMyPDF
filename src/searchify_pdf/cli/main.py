@@ -39,14 +39,25 @@ from searchify_pdf.domain.settings import (
 )
 from searchify_pdf.engines.base import OcrEngine
 from searchify_pdf.i18n import tr
-from searchify_pdf.platform.app_location import current_application_directory
+from searchify_pdf.platform.app_location import HOME_OVERRIDE
 from searchify_pdf.platform.components import load_inventory
 from searchify_pdf.platform.desktop import (
     default_data_home,
     install_desktop_entry,
     launch_command,
 )
-from searchify_pdf.storage.settings_repository import LoadStatus, SettingsRepository
+from searchify_pdf.storage.settings_location import (
+    Location,
+    SettingsHome,
+    current_settings_home,
+    store_settings,
+)
+from searchify_pdf.storage.settings_repository import (
+    SETTINGS_FILE_NAME,
+    LoadStatus,
+    SettingsRepository,
+    SettingsSaveError,
+)
 from searchify_pdf.storage.statistics import StatisticsRepository
 
 EXIT_OK, EXIT_FAILED, EXIT_USAGE, EXIT_ACTION_REQUIRED = 0, 1, 2, 3
@@ -114,6 +125,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--install-desktop-entry",
         action="store_true",
         help="add a Linux app-menu launcher that accepts dropped PDFs and folders",
+    )
+    parser.add_argument(
+        "--store-settings-in-profile",
+        action="store_true",
+        help="opt in: save the settings (with any options given) to your user profile "
+        "folder and use them from there; a settings file next to the app still wins",
     )
     return parser
 
@@ -337,6 +354,25 @@ def gui_available(env: dict[str, str] | os._Environ[str], platform: str = sys.pl
     return True
 
 
+def store_in_profile(settings: Settings, home: SettingsHome, stdout: TextIO) -> int:
+    """``--store-settings-in-profile``: the explicit opt-in of ADR 0012."""
+    language = settings.ui_language
+    if home.location is Location.OVERRIDE:
+        sys.stderr.write(tr("settings.profile.overridden", language, variable=HOME_OVERRIDE))
+        sys.stderr.write("\n")
+        return EXIT_USAGE
+    try:
+        store_settings(home.profile_dir, settings)
+    except (SettingsSaveError, OSError) as exc:
+        code = exc.code if isinstance(exc, SettingsSaveError) else type(exc).__name__
+        sys.stderr.write(tr("settings.save_failed", language, code=code) + "\n")
+        return EXIT_FAILED
+    stdout.write(tr("settings.profile.stored", language, folder=home.profile_dir) + "\n")
+    if (home.app_dir / SETTINGS_FILE_NAME).exists():
+        stdout.write(tr("settings.profile.shadowed", language, folder=home.app_dir) + "\n")
+    return EXIT_OK
+
+
 def _default_engine() -> OcrEngine:
     from searchify_pdf.engines.ocrmypdf_engine import OcrmypdfEngine
 
@@ -355,7 +391,8 @@ def main(
     stdout = stdout or sys.stdout
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
-    app_dir = current_application_directory()
+    home = current_settings_home()
+    app_dir = home.directory
 
     if args.licenses:
         for component in load_inventory():
@@ -382,6 +419,8 @@ def main(
         sys.stderr.write(f"{APP_ID}: invalid option: {exc}\n")
         return EXIT_USAGE
 
+    if args.store_settings_in_profile:
+        return store_in_profile(settings, home, stdout)
     if args.gui_smoke_test:
         from searchify_pdf.ui.app import smoke_test
 

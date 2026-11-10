@@ -67,6 +67,7 @@ flowchart LR
         ENG["engines/ — OcrEngine protocol, OCRmyPDF adapter, worker, pdf_inspect"]
         PUB["storage/publisher — staging, validation, no-clobber publish"]
         SREPO["storage/settings_repository"]
+        SLOC["storage/settings_location — portable / opted-in profile (ADR 0012)"]
         STATS["storage/statistics"]
         LOCK["storage/locks — per-target lock, stale recovery"]
     end
@@ -86,6 +87,10 @@ flowchart LR
     DISC --> DOM
     WF --> DOM
     SREPO --> DOM
+    UI --> SLOC
+    CLI --> SLOC
+    SLOC --> SREPO
+    SLOC --> PLAT
     PLAT -.-> UI
 ```
 

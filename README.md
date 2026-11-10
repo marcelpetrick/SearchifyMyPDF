@@ -52,7 +52,9 @@ modified, and no Python or OCR installation is needed.
 - **Parallel but bounded:** Automatic, one-after-another, or a fixed number of documents;
   one shared CPU budget; cancel kills OCR processes cleanly.
 - **Portable settings** in `searchify-pdf.settings.json` next to the app; Save / Discard /
-  Cancel on close; clear guidance when the folder is read-only.
+  Cancel on close; clear guidance when the folder is read-only, and an explicit opt-in to
+  keep them in your user profile instead (*Store settings in my user profile*, or
+  `--store-settings-in-profile`).
 - **Light/dark themes, English/German UI**, keyboard shortcuts (Ctrl+O, Ctrl+Shift+O,
   Ctrl+Enter, Esc, Ctrl+S), status text never relies on colour alone.
 - **Optional local statistics** (off by default): counts, configured languages, true

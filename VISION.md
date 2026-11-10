@@ -142,7 +142,7 @@ Find the real application location, not the current working directory, shortcut 
 - **Read-only location:** explain how to move the application to a writable folder. Do not silently fall back to a user-profile configuration file; that would defeat portable settings.
 - **Concurrent settings edits:** detect stale versions or serialize writes; avoid silent lost updates.
 
-A user-profile fallback is an open future option, not an approved default.
+A user-profile fallback is not a default. Decision (issue #9, ADR 0012): the user may explicitly opt in to storing settings in the user profile (confirmed button when the application folder is read-only, or `--store-settings-in-profile`); a settings file beside the application always takes precedence.
 
 ### 6.3 Settings surface
 
@@ -306,7 +306,7 @@ Deliver and test Intel and Apple Silicon applications, native open/drop events, 
 | Existing-OCR quality cross-check | Meaningful quality signals and user review; avoid treating text presence as quality |
 | Expanded desktop testing | Recruit Windows/macOS/Linux testers; publish repeatable test script and supported matrix |
 | Monetization exploration | Evaluate only after a useful prototype and user feedback; no account/payment machinery now |
-| Optional user-profile settings fallback | Consider only as explicit opt-in without breaking portable mode |
+| Optional user-profile settings fallback | Consider only as explicit opt-in without breaking portable mode — implemented as such (ADR 0012) |
 
 Do not create an external issue or imply one exists during this document-only handoff. Agents should create them once repository ownership and access are established.
 

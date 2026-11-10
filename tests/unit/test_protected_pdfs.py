@@ -335,7 +335,7 @@ def test_terminal_password_prompt_hides_input_on_a_tty(monkeypatch: pytest.Monke
 def test_cli_password_file_and_restricted_flag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("searchify_pdf.cli.main.current_application_directory", lambda: tmp_path)
+    monkeypatch.setenv("SEARCHIFY_PDF_HOME", str(tmp_path))
     docs = tmp_path / "docs"
     docs.mkdir()
     synthetic.encrypted_pdf(docs / "e.pdf")
@@ -357,7 +357,7 @@ def test_cli_password_file_and_restricted_flag(
 def test_cli_unreadable_password_file_is_a_usage_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("searchify_pdf.cli.main.current_application_directory", lambda: tmp_path)
+    monkeypatch.setenv("SEARCHIFY_PDF_HOME", str(tmp_path))
     src = synthetic.encrypted_pdf(tmp_path / "e.pdf")
     code = main(
         ["--cli", "--password-file", str(tmp_path / "missing.txt"), str(src)],
@@ -371,7 +371,7 @@ def test_cli_unreadable_password_file_is_a_usage_error(
 def test_cli_non_interactive_protected_pdf_reports_password_required(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("searchify_pdf.cli.main.current_application_directory", lambda: tmp_path)
+    monkeypatch.setenv("SEARCHIFY_PDF_HOME", str(tmp_path))
     src = synthetic.encrypted_pdf(tmp_path / "e.pdf")
     out = io.StringIO()
     code = main(
