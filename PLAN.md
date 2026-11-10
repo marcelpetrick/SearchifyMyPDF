@@ -108,8 +108,10 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     public release with all three platforms and verifies the published assets.
 
 ### M3 / M4 — Windows, macOS
-Architecture keeps platform adapters separate; artifacts and native evidence are
-**not** produced yet (no claims of support). Tracked as deferred issues.
+Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
+(`scripts/build_native_binary.sh`, `native.yml`) and attached to every release. Still
+open for full support: the full test suite on those platforms, Explorer/Finder drop
+integration, code signing/notarization (#12), installer/app bundle. Issues #10, #11.
 
 ## Status
 
@@ -117,8 +119,8 @@ Architecture: [`docs/architecture.md`](docs/architecture.md) (C4 context/contain
 flowcharts, sequence diagrams and the GitHub Actions pipeline in Mermaid) and
 [`docs/adr/`](docs/adr/). Working rules: [`AGENTS.md`](AGENTS.md).
 
-Milestones: **M0 ✅ · M1 ✅ · M2 ✅ (Linux prerelease pending owner review of the draft) ·
-M2b ✅ (steps 21–30) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues #2–#9, #12, #13.
+Milestones: **M0 ✅ · M1 ✅ · M2 ✅ ·
+M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview #11.** Deferred backlog: issues #2–#9, #12, #13.
 
 | ID | Status | Evidence |
 | --- | --- | --- |
@@ -139,7 +141,7 @@ M2b ✅ (steps 21–30) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues 
 | A15 | ✅ | 100 % statement / 100 % branch (minimum 95 % each, enforced separately) |
 | A16 | ✅ | mutation 100 % of non-equivalent (min 95 %), real-OCR integration, packaged E2E |
 | A17 | ✅ | `docs/desktop-matrix.md` advertises Linux x86-64 only |
-| A18 | 🟡 | release workflow promotes tested assets with SHA256SUMS + inventory to a **draft**; owner reviews/publishes (#12) |
+| A18 | ✅ | release workflow publishes a public release with the tested Linux executable plus smoke-tested Windows/macOS previews, SHA256SUMS and inventories, then downloads and verifies the published assets (owner asked for public releases on 2026-11-10) |
 | A19 | ⏳ | procedure in `docs/windows-search.md`; Windows build is M3 (#10) |
 | A20 | ✅ | `docs/security-review.md` with regression tests; residual risk #13 |
 
@@ -199,3 +201,4 @@ M2b ✅ (steps 21–30) · M3 ⏳ #10 · M4 ⏳ #11.** Deferred backlog: issues 
 | 0.17.8 | 2026-11-10 | ci(native): build the macOS executable on the macos-15 runner (macos-14 was retired) |
 | 0.18.0 | 2026-11-10 | feat(protection): process password-protected and opt-in owner-restricted PDFs, copies stay protected |
 | 0.18.1 | 2026-11-10 | fix(ocr): keep German umlauts by passing English last, gated by a ground-truth quality test |
+| 0.19.0 | 2026-11-10 | ci(release): publish public releases with Linux, Windows and macOS executables and verify the published assets |

@@ -190,7 +190,9 @@ flowchart LR
     end
     LP -->|push main| CI["Actions: Local Pipeline<br/>(py3.12 full, py3.13 no-package)"]
     LP -->|push main / tag| DK["Actions: Docker → GHCR"]
-    LP -->|tag v*| REL["Actions: Release → draft release<br/>with tested binary, SHA256SUMS, inventory"]
+    LP -->|push main| NAT["Actions: Native builds<br/>Windows + macOS executables, smoke-tested"]
+    LP -->|tag v*| REL["Actions: Release → public release<br/>Linux (full pipeline) + Windows + macOS,<br/>SHA256SUMS, inventories → verify download"]
+    NAT -.reused by.-> REL
     SCHED([weekly]) --> MUT["Actions: Mutation"]
 ```
 

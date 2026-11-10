@@ -1,7 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Release pipeline: builds and tests the Linux executable with ./localPipeline.sh and
-# promotes exactly that tested artifact into a DRAFT GitHub release. A maintainer
-# reviews the evidence and publishes the draft.
+# Release pipeline (tag v*): builds and tests every platform, then PUBLISHES a public
+# GitHub release with exactly those tested executables and verifies the published assets.
+#
+#   linux    full ./localPipeline.sh (tests, coverage, binary, packaged E2E, Docker)
+#   native   Windows + macOS executables, smoke-tested on their runners (native.yml)
+#   publish  one release: Linux, Windows, macOS executables, inventories, wheel, source,
+#            LICENSE, RELEASE_NOTES.md and SHA256SUMS over all of them.
+#            Tags with a pre-release suffix (v1.2.3-alpha.1) become public pre-releases,
+#            plain tags (v1.2.3) the "latest" release.
+#   verify   downloads the published assets anonymously-equivalent via gh, checks
+#            SHA256SUMS and runs the Linux executable.
+# A manual run (workflow_dispatch) creates a draft for rehearsals unless "publish" is set.
 name: Release
 
 on:
@@ -9,17 +18,21 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      prerelease:
-        description: "Mark the draft as a prerelease"
+      publish:
+        description: "Publish the release (otherwise a draft is created)"
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build-and-test:
-    name: Build and test (localPipeline.sh)
+  linux:
+    name: Linux build and full pipeline
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     outputs:
@@ -42,40 +55,84 @@ jobs:
         run: scripts/install_ci_dependencies.sh
       - name: Full local pipeline (tests, coverage, binary, packaged E2E, Docker)
         run: ./localPipeline.sh
-      - name: Assemble release assets
-        run: scripts/prepare_release.sh "${{ steps.version.outputs.version }}" dist/release
-      - name: Upload tested release assets
+      - name: Upload tested Linux assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-assets
-          path: dist/release/
+          name: linux-assets
+          path: |
+            dist/binary/
+            dist/*.whl
+            dist/*.tar.gz
           if-no-files-found: error
 
-  draft-release:
-    name: Create draft release
-    needs: build-and-test
+  native:
+    name: Windows and macOS builds
+    uses: ./.github/workflows/native.yml
+
+  publish:
+    name: Publish GitHub release
+    needs: [linux, native]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-assets
-          path: dist/release
-      - name: Verify checksums of the tested assets
-        run: cd dist/release && sha256sum -c SHA256SUMS
-      - name: Create draft release with the tested assets
+          name: linux-assets
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: searchify-pdf-*
+          path: dist/binary
+          merge-multiple: true
+      - name: Verify per-file checksums of the tested executables
+        run: cd dist/binary && for sum in *.sha256; do sha256sum -c "${sum}"; done
+      - name: Assemble release assets (all platforms, SHA256SUMS, notes)
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build-and-test.outputs.version }}
+        run: |
+          # Changes since the last *published* release (drafts and this tag excluded).
+          previous="$(gh release list --exclude-drafts --limit 20 --json tagName \
+            --jq '[.[] | .tagName | select(. != env.GITHUB_REF_NAME)][0] // ""' \
+            | sed -E 's/^v//; s/-.*$//')"
+          scripts/prepare_release.sh "${{ needs.linux.outputs.version }}" dist/release "${previous}"
+      - name: Create the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.linux.outputs.version }}
+          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
         run: |
           tag="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then tag="v${VERSION}-build.${GITHUB_RUN_NUMBER}"; fi
-          prerelease="--prerelease"
-          if [[ "${{ inputs.prerelease }}" == "false" ]]; then prerelease=""; fi
-          gh release create "${tag}" dist/release/* \
-            --draft ${prerelease} \
+          flags=()
+          if [[ "${tag}" == *-* ]]; then flags+=(--prerelease); else flags+=(--latest); fi
+          if [[ "${PUBLISH}" != "true" ]]; then flags+=(--draft); fi
+          gh release create "${tag}" dist/release/* "${flags[@]}" \
             --target "${GITHUB_SHA}" \
             --title "Searchify PDF ${tag}" \
             --notes-file dist/release/RELEASE_NOTES.md
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          gh release view "${tag}" --json url,isDraft,isPrerelease,assets \
+            --jq '"\(.url) draft=\(.isDraft) prerelease=\(.isPrerelease) assets=\(.assets | length)"'
+
+  verify:
+    name: Verify the published release
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download every asset and check SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          mkdir release && cd release
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}"
+          ls -la
+          sha256sum -c SHA256SUMS
+          for os in linux windows macos; do ls searchify-pdf-*-"${os}"-* >/dev/null; done
+          chmod +x searchify-pdf-*-linux-x86_64
+          ./searchify-pdf-*-linux-x86_64 --version

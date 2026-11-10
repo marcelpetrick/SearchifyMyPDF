@@ -59,7 +59,15 @@ modified, and no Python or OCR installation is needed.
   medians; per-page time is shown as a labelled estimate.
 - **About & licenses** offline, generated from the real build inputs.
 
-## Install and use (Linux)
+## Install and use
+
+Every [release](https://github.com/marcelpetrick/SearchifyMyPDF/releases) has executables
+for 🐧 Linux x86-64, 🪟 Windows x86-64 and 🍎 macOS Apple silicon, plus `SHA256SUMS`.
+Linux is the fully tested platform; Windows and macOS builds are **previews**: they are
+smoke-tested on their own runners (version, licenses, GUI drop, OCR with the bundled
+Tesseract) but not yet covered by the full test suite, and not code-signed.
+
+### Linux
 
 1. Download `searchify-pdf-<version>-linux-x86_64` from the
    [releases](https://github.com/marcelpetrick/SearchifyMyPDF/releases) (or the
@@ -76,7 +84,15 @@ chmod +x searchify-pdf-*-linux-x86_64
 ```
 
 Requirements: x86-64 Linux with glibc ≥ 2.35 (Ubuntu 22.04+, Debian 12+, Fedora 36+, Arch/Manjaro)
-and a normal desktop (X11 or Wayland). Windows and macOS builds are planned, not available yet.
+and a normal desktop (X11 or Wayland).
+
+### Windows and macOS (preview)
+
+- **Windows 10/11:** run `searchify-pdf-<version>-windows-x86_64.exe`. It is not signed yet, so
+  SmartScreen may warn: *More info → Run anyway*. A console window opens next to the app.
+- **macOS 15+ (Apple silicon):** the executable is not notarized yet. In Terminal:
+  `xattr -d com.apple.quarantine searchify-pdf-<version>-macos-arm64 && chmod +x searchify-pdf-<version>-macos-arm64 && ./searchify-pdf-<version>-macos-arm64`.
+- Both accept the same command-line options as Linux (`--cli`, `--password-file`, …).
 
 ### Command line
 
@@ -135,8 +151,9 @@ scripts/commit.sh patch "fix(scope): message"   # bump version → gate → comm
 | mutation (opt-in, weekly in CI) | mutmut on the core, minimum 95 % — see [`docs/mutation-baseline.md`](docs/mutation-baseline.md) |
 
 Workflows: **Local Pipeline** (push/PR, Python 3.12 full + 3.13), **Docker** (build, smoke,
-publish to GHCR), **Release** (tag `v*` → full pipeline → tested assets, `SHA256SUMS`,
-inventory → draft prerelease), **Mutation** (weekly), **Dependencies** (pip-audit daily).
+publish to GHCR), **Native builds** (Windows + macOS executables, smoke-tested), **Release** (tag `v*` →
+full Linux pipeline + native builds → public GitHub release with all three platforms,
+`SHA256SUMS`, inventories → download and verify the published assets), **Mutation** (weekly), **Dependencies** (pip-audit daily).
 
 ### Documentation
 
@@ -150,7 +167,8 @@ inventory → draft prerelease), **Mutation** (weekly), **Dependencies** (pip-au
 
 ## Known limitations
 
-- Linux x86-64 only for now (Windows = milestone M3, macOS = M4).
+- Windows and macOS builds are previews: smoke-tested only, unsigned, no Explorer/Finder
+  drop integration yet (milestones M3 #10 and M4 #11).
 - Digitally signed PDFs are rejected (reported, untouched); a copy would invalidate the signature.
 - Desktop search tools may not index the text of password-protected copies.
 - Pages that mix digital text with scanned regions keep their text unchanged in the default
