@@ -67,7 +67,8 @@ COMMIT="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
         echo "- **macOS:** the executable is not notarized yet. In Terminal:"
         echo "  \`xattr -d com.apple.quarantine ${MACOS}; chmod +x ${MACOS}; ./${MACOS}\`."
     fi
-    echo "- Settings are stored in \`searchify-pdf.settings.json\` beside the executable, so put it in a folder you can write to."
+    echo "- Settings are stored in \`searchify-pdf.settings.json\` beside the executable (portable). If that folder is read-only,"
+    echo "  the app offers to keep them in your user profile instead (\`--store-settings-in-profile\` on the command line)."
     echo "- \`*.components.json\` lists every bundled component and its license (also under About in the app)."
     echo "- Wheel and source archive for Python users; \`docker pull ghcr.io/marcelpetrick/searchifymypdf:${VERSION}\` for the headless CLI image."
     echo

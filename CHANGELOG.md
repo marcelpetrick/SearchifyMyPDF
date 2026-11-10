@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.21.2 — 2026-11-10
+
+- docs(release): mention the opt-in profile settings in the release notes
+
 ## 0.21.1 — 2026-11-10
 
 - ci(native): smoke-test the existing-text cross-check and the profile settings opt-in on Windows and macOS
