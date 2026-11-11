@@ -26,6 +26,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 from PySide6.QtWidgets import QApplication  # noqa: E402
 from tests import synthetic  # noqa: E402
 
+from searchify_pdf.application.workflow import Choice, Decision, PasswordAnswer  # noqa: E402
 from searchify_pdf.domain.settings import Settings, Theme, UiLanguage  # noqa: E402
 from searchify_pdf.storage.settings_repository import SettingsRepository  # noqa: E402
 from searchify_pdf.ui.app import create_window  # noqa: E402
@@ -58,10 +59,13 @@ def main() -> int:
         synthetic.encrypted_pdf(docs / "Locked statement.pdf")
         SettingsRepository(home).save(Settings(theme=Theme.LIGHT), None)
         app, window = create_window(Settings(theme=Theme.LIGHT), [docs], home)
+        # Offscreen nobody answers dialogs: skip the locked PDF ("no password").
+        window.prompter = lambda kind, _payload: (
+            PasswordAnswer(Choice.NO) if kind == "password" else Decision(Choice.NO)
+        )
         window.resize(1100, 720)
         window.show()
         wait(app, lambda: window.last_summary is not None and not window.running)
-        window.table.resizeColumnsToContents()
         app.processEvents()
         window.grab().save(str(out / "screenshot-convert-light.png"))
         apply_theme(app, Theme.DARK)

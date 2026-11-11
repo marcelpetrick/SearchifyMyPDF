@@ -35,8 +35,11 @@ modified, and no Python or OCR installation is needed.
 
 ## Features
 
-- **Drop and done:** drop PDFs/folders on the window or on the installed launcher; processing
-  starts with your saved settings. Folders include all subfolders.
+- **Drop and done:** drop PDFs/folders on the installed launcher (or the executable) and they
+  are processed **in the background** with your saved settings: no window, only questions
+  your settings ask for (password, overwrite), and a message only if something needs
+  attention. Enable *Show this window when PDFs or folders are dropped* to watch progress;
+  double-click opens the window, which also accepts drops. Folders include all subfolders.
 - **Copies beside originals** with a configurable suffix (default `_searchable`); no extra
   output folders; originals are only read. Generated copies are recognised and never
   re-processed (`_searchable_searchable.pdf` cannot happen).

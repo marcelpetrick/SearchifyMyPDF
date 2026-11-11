@@ -18,7 +18,7 @@ from pytestqt.qtbot import QtBot
 
 from searchify_pdf import __version__
 from searchify_pdf.application.workflow import Choice, Decision
-from searchify_pdf.domain.jobs import Outcome
+from searchify_pdf.domain.jobs import BatchSummary, Outcome
 from searchify_pdf.domain.settings import (
     ExistingOutputPolicy,
     Settings,
@@ -555,6 +555,75 @@ def test_create_window_drop_launch_uses_saved_settings(qtbot: QtBot, tmp_path: P
     qtbot.addWidget(window2)
     assert window2.run_overrides is not None and window2.run_settings().output_suffix == "_cli"
     assert app_module._default_engine().name == "ocrmypdf"
+
+
+class _FakeApp:
+    def __init__(self) -> None:
+        self.quit_on_last_window: list[bool] = []
+        self.exits: list[int] = []
+
+    def setQuitOnLastWindowClosed(self, value: bool) -> None:
+        self.quit_on_last_window.append(value)
+
+    def exit(self, code: int) -> None:
+        self.exits.append(code)
+
+
+def _background(
+    qtbot: QtBot, tmp_path: Path, paths: list[Path], *answers: QMessageBox.StandardButton
+) -> tuple[_FakeApp, MainWindow, Messages]:
+    _app, window = app_module.create_window(Settings(), paths, tmp_path, lambda: FakeEngine())
+    qtbot.addWidget(window)
+    messages = Messages(*answers)
+    window.message = messages
+    fake = _FakeApp()
+    app_module.run_in_background(fake, window)  # type: ignore[arg-type]
+    assert fake.quit_on_last_window == [False]  # closing a question must not quit
+    qtbot.waitUntil(lambda: bool(fake.exits) or window.isVisible(), timeout=20000)
+    return fake, window, messages
+
+
+def test_drop_launch_in_background_quits_silently_on_success(qtbot: QtBot, tmp_path: Path) -> None:
+    src = synthetic.scanned_pdf(tmp_path / "a.pdf")
+    fake, window, messages = _background(qtbot, tmp_path, [src])
+    assert fake.exits == [0] and not window.isVisible() and not messages.shown
+    assert (tmp_path / "a_searchable.pdf").exists()
+    assert window.batch_done is None
+
+
+def test_drop_launch_in_background_reports_problems(qtbot: QtBot, tmp_path: Path) -> None:
+    bad = synthetic.corrupt_pdf(tmp_path / "bad.pdf")
+    fake, window, messages = _background(qtbot, tmp_path, [bad], Std.No)
+    assert fake.exits == [1] and not window.isVisible()
+    assert "need your attention" in messages.shown[-1] and "1 failed" in messages.shown[-1]
+    bad2 = synthetic.corrupt_pdf(tmp_path / "bad2.pdf")
+    fake, window, messages = _background(qtbot, tmp_path, [bad2], Std.Yes)
+    assert not fake.exits and window.isVisible()
+    assert fake.quit_on_last_window == [False, True]
+
+
+def test_drop_launch_waits_for_a_batch_started_meanwhile(qtbot: QtBot, tmp_path: Path) -> None:
+    _app, window = app_module.create_window(Settings(), [], tmp_path, lambda: FakeEngine())
+    qtbot.addWidget(window)
+    fake = _FakeApp()
+    app_module.run_in_background(fake, window)  # type: ignore[arg-type]
+    hook = window.batch_done
+    assert hook is not None
+    window.batch = object()  # type: ignore[assignment]  # pretend a new batch runs
+    hook(BatchSummary((), (), 0.0, 1))
+    window.batch = None
+    assert not fake.exits and window.batch_done is hook
+    hook(BatchSummary((), (), 0.0, 1))
+    assert fake.exits == [0]
+
+
+def test_show_window_on_drop_setting(qtbot: QtBot, tmp_path: Path) -> None:
+    window = make_window(qtbot, tmp_path)
+    assert not window.show_window_box.isChecked()
+    assert "dropped onto the app" in window.show_window_box.text()
+    window.show_window_box.setChecked(True)
+    assert window.save_settings()
+    assert SettingsRepository(tmp_path).load().settings.show_window_on_drop
 
 
 def test_batch_thread_internal_error_and_cancelled_prompts(qtbot: QtBot, tmp_path: Path) -> None:

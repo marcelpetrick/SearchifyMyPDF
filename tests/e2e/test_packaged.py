@@ -278,12 +278,31 @@ for _ in $(seq 50); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
 entry="$(ls /tmp/share/applications/*.desktop)"
 desktop-file-validate "$entry"
 grep -q '^Exec=.*%F' "$entry"
+mapped() {  # a viewable top-level window titled "Searchify PDF" (not just created)
+    for id in $(xwininfo -root -tree | awk '/"Searchify PDF"/ {print $1}'); do
+        xwininfo -id "$id" | grep -q "IsViewable" && return 0
+    done
+    return 1
+}
+
+# 1. Default: a drop works in the background - no window, the process ends by itself.
 gio launch "$entry" "/data/Ordner Ä" /data/single.pdf
+seen=no
 for _ in $(seq 600); do
-    [ -f "/data/Ordner Ä/inner_searchable.pdf" ] && [ -f /data/single_searchable.pdf ] && break
+    mapped && seen=yes
+    [ -f "/data/Ordner Ä/inner_searchable.pdf" ] && [ -f /data/single_searchable.pdf ] \
+        && ! pgrep -x searchify-pdf >/dev/null && break
     sleep 0.2
 done
-xwininfo -root -tree | grep -q '"Searchify PDF"' && echo "window mapped"
+pgrep -x searchify-pdf >/dev/null && echo "background still running"
+echo "background window seen: $seen"
+
+# 2. Opt-in: "show window on drop" opens the real window for the next drop.
+printf '{"schema_version": 2, "show_window_on_drop": true}' > /app/searchify-pdf.settings.json
+gio launch "$entry" /data/later.pdf
+for _ in $(seq 600); do [ -f /data/later_searchable.pdf ] && break; sleep 0.2; done
+for _ in $(seq 50); do mapped && break; sleep 0.1; done
+mapped && echo "window mapped"
 ls "/data/Ordner Ä" /data
 """
 
@@ -291,18 +310,23 @@ ls "/data/Ordner Ä" /data
 def test_desktop_launcher_with_dropped_files_on_x11(tmp_path: Path) -> None:
     """The installed launcher started like a file manager does (gio launch, %F).
 
-    A real X server shows the real window, which converts the dropped folder and file.
-    A physical drag in a GNOME/KDE session stays a manual check (#7).
+    On a real X server: by default the dropped folder and file are converted in the
+    background (no window, the process exits); with *show window on drop* the real
+    window appears. A physical drag in a GNOME/KDE session stays a manual check (#7).
     """
     app, data = _app_dir(tmp_path), tmp_path / "data"
     (data / "Ordner Ä").mkdir(parents=True)
     synthetic.scanned_pdf(data / "Ordner Ä" / "inner.pdf")
     synthetic.scanned_pdf(data / "single.pdf")
+    synthetic.scanned_pdf(data / "later.pdf")
     done = _docker(app, data, "-c", LAUNCHER_SCRIPT, image=X11_IMAGE, entry=("bash",))
-    assert done.returncode == 0, done.stdout + done.stderr
-    assert "window mapped" in done.stdout, done.stdout + done.stderr
-    assert contains_words(all_text(data / "Ordner Ä" / "inner_searchable.pdf"), ["invoice"])
-    assert contains_words(all_text(data / "single_searchable.pdf"), ["invoice"])
+    output = done.stdout + done.stderr
+    assert done.returncode == 0, output
+    assert "background window seen: no" in done.stdout, output
+    assert "background still running" not in done.stdout, output
+    assert "window mapped" in done.stdout, output
+    for copy in ("Ordner Ä/inner", "single", "later"):
+        assert contains_words(all_text(data / f"{copy}_searchable.pdf"), ["invoice"])
 
 
 def test_protected_pdfs_with_password_file_and_restricted_opt_in(tmp_path: Path) -> None:

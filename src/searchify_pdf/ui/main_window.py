@@ -183,6 +183,7 @@ class MainWindow(QMainWindow):
         self.file_picker: Callable[[], list[str]] = self._pick_files
         self.folder_picker: Callable[[], str] = self._pick_folder
         self.folder_opener: Callable[[Path], None] = open_folder
+        self.batch_done: Callable[[BatchSummary], None] | None = None  # background launch
         self.url_opener: Callable[[str], None] = open_url
         self.update_checker: Callable[[], UpdateCheck] = check_for_update
         self.update_bridge = _UpdateBridge(self)
@@ -346,6 +347,9 @@ class MainWindow(QMainWindow):
         self.restricted_box = named(QCheckBox(), "restricted")
         self.restricted_box.toggled.connect(self._form_changed)
         files_form.addRow("", self.restricted_box)
+        self.show_window_box = named(QCheckBox(), "showWindowOnDrop")
+        self.show_window_box.toggled.connect(self._form_changed)
+        files_form.addRow("", self.show_window_box)
         outer.addWidget(self.group_files)
 
         self.group_performance = QGroupBox()
@@ -511,6 +515,7 @@ class MainWindow(QMainWindow):
         self.suffix_label.setText(t("settings.suffix"))
         self.restricted_box.setText(t("settings.restricted"))
         self.cross_check_box.setText(t("settings.cross_check"))
+        self.show_window_box.setText(t("settings.show_window_on_drop"))
         self._align_form_labels()
         self.workers_label.setText(t("settings.workers"))
         for i in range(self.worker_combo.count()):
@@ -717,6 +722,8 @@ class MainWindow(QMainWindow):
         if self.autostart_pending and self.queue:
             self.start()
         self.autostart_pending = False
+        if self.batch_done is not None:
+            self.batch_done(summary)
 
     def _show_summary(self, summary: BatchSummary) -> None:
         counts = {outcome.value: summary.count(outcome) for outcome in Outcome}
@@ -870,6 +877,7 @@ class MainWindow(QMainWindow):
             self.suffix_edit.setText(settings.output_suffix)
             self.restricted_box.setChecked(settings.process_restricted_pdfs)
             self.cross_check_box.setChecked(settings.cross_check_existing_text)
+            self.show_window_box.setChecked(settings.show_window_on_drop)
             self.worker_combo.setCurrentIndex(
                 self.worker_combo.findData(settings.worker_mode.value)
             )
@@ -899,6 +907,7 @@ class MainWindow(QMainWindow):
             output_suffix=self.suffix_edit.text(),
             process_restricted_pdfs=self.restricted_box.isChecked(),
             cross_check_existing_text=self.cross_check_box.isChecked(),
+            show_window_on_drop=self.show_window_box.isChecked(),
             worker_mode=WorkerMode(self.worker_combo.currentData()),
             fixed_workers=self.worker_spin.value(),
             theme=Theme(self.theme_combo.currentData()),

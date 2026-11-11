@@ -89,6 +89,9 @@ class Settings:
     # "Ask me" for existing text: first compare up to three pages with a fresh
     # recognition and show how well they agree (#6, domain/text_quality.py).
     cross_check_existing_text: bool = True
+    # A drop launch (files/folders handed over by the OS) works in the background unless
+    # this is enabled; only questions and problems are shown. Double-click opens the window.
+    show_window_on_drop: bool = False
 
     def __post_init__(self) -> None:
         validate(self)
@@ -127,6 +130,7 @@ class Settings:
             "timeout_seconds": self.timeout_seconds,
             "process_restricted_pdfs": self.process_restricted_pdfs,
             "cross_check_existing_text": self.cross_check_existing_text,
+            "show_window_on_drop": self.show_window_on_drop,
         }
 
 
@@ -155,6 +159,7 @@ def validate(settings: Settings) -> None:
         settings.statistics_enabled,
         settings.process_restricted_pdfs,
         settings.cross_check_existing_text,
+        settings.show_window_on_drop,
     ):
         if not isinstance(flag, bool):
             raise SettingsError("flag_invalid", repr(flag))

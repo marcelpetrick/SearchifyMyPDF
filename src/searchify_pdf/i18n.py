@@ -284,6 +284,10 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
         EN: "Always replace existing OCR text",
         DE: "Vorhandenen OCR-Text immer ersetzen",
     },
+    "settings.show_window_on_drop": {
+        EN: "Show this window when PDFs or folders are dropped onto the app (otherwise they are processed in the background)",
+        DE: "Dieses Fenster anzeigen, wenn PDFs oder Ordner auf die App gezogen werden (sonst im Hintergrund verarbeiten)",
+    },
     "settings.cross_check": {
         EN: "Before asking about existing text, compare up to 3 pages with a fresh recognition",
         DE: "Vor der Frage nach vorhandenem Text bis zu 3 Seiten mit einer neuen Erkennung vergleichen",
@@ -414,6 +418,10 @@ MESSAGES: dict[str, dict[UiLanguage, str]] = {
     "launcher.installed": {
         EN: "Added to the app menu. You can now drop PDFs or folders onto the Searchify PDF launcher.",
         DE: "Zum Anwendungsmenü hinzugefügt. Sie können jetzt PDFs oder Ordner auf den Searchify-PDF-Starter ziehen.",
+    },
+    "background.attention": {
+        EN: "Searchify PDF finished, but some PDFs need your attention:\n\n{summary}\n\nShow the window with the details?",
+        DE: "Searchify PDF ist fertig, aber einige PDFs brauchen Ihre Aufmerksamkeit:\n\n{summary}\n\nFenster mit den Details anzeigen?",
     },
     "update.checking": {EN: "Checking…", DE: "Wird geprüft…"},
     "update.newer": {

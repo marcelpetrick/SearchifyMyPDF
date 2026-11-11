@@ -121,6 +121,11 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
     over TLS with the OS certificate store (`truststore`), and offers the release page;
     nothing is downloaded or replaced. Stage 2 (verified download + swap + restart)
     waits for signing (#12).
+36. ✅ **Background drop launch (owner request 2026-11-11, ADR 0015):** a drop on the
+    launcher/executable processes without opening the window; only required questions
+    and, if something needs attention, one message (show details / quit). Opt-in
+    *Show this window when PDFs or folders are dropped*. Light theme reworked (neutral
+    surfaces, gridless table, aligned settings). UI tests + real-X11 packaged E2E.
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
@@ -229,3 +234,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.22.0 | 2026-11-10 | feat(update): user-triggered update check against the latest GitHub release, offers the download page (#2 stage 1) |
 | 0.22.1 | 2026-11-11 | build(windows): bundle only the DLLs tesseract.exe imports, once (154.2 MB to 99.6 MB) |
 | 0.22.2 | 2026-11-11 | style(ui): calmer light theme (neutral surfaces), gridless results table, aligned settings labels, consistent fields |
+| 0.23.0 | 2026-11-11 | feat(ui): dropped files are processed in the background without the window; opt-in setting shows it |

@@ -76,6 +76,7 @@ def test_from_json_uses_defaults_and_ignores_unknown_keys() -> None:
         ({"timeout_seconds": 99.0}, "timeout_out_of_range"),
         ({"deskew": "yes"}, "flag_invalid"),
         ({"statistics_enabled": 1}, "flag_invalid"),
+        ({"show_window_on_drop": "no"}, "flag_invalid"),
         ({"theme": "dark"}, "choice_invalid"),
         ({"worker_mode": "auto"}, "choice_invalid"),
         ({"existing_text_policy": "ask"}, "choice_invalid"),

@@ -62,6 +62,8 @@ The immediate goal is a working Linux MVP. Windows follows, then macOS. Monetiza
 5. Create a temporary result; validate it before publishing the copy.
 6. Show progress and a persistent completion/error summary with an Open folder action.
 
+Owner decision (2026-11-11, ADR 0015): a drop on the app/launcher works in the background by default: no window, only the questions the settings ask for, and a message only if something needs attention. The setting *Show this window when PDFs or folders are dropped* restores the window with progress and summary. Starting the app without files (double-click) always opens the window.
+
 Example: `Contracts/Acme.pdf` becomes `Contracts/Acme_searchable.pdf`.
 
 ### 3.2 Drop a folder

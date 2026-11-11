@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.23.0 — 2026-11-11
+
+- feat(ui): dropped files are processed in the background without the window; opt-in setting shows it
+
 ## 0.22.2 — 2026-11-11
 
 - style(ui): calmer light theme (neutral surfaces), gridless results table, aligned settings labels, consistent fields
