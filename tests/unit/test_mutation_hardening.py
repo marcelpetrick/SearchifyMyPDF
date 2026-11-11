@@ -278,7 +278,9 @@ def test_discovery_walk_details(tmp_path: Path) -> None:
     assert result.candidates[0].explicit is False and result.candidates[0].looks_generated is False
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permissions")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="POSIX permissions; root ignores them"
+)
 def test_unreadable_folder_omission_has_path_and_detail(tmp_path: Path) -> None:
     locked = tmp_path / "locked"
     locked.mkdir()

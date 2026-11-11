@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.23.1 — 2026-11-11
+
+- fix(windows): serialize pikepdf access so protected PDFs convert in parallel batches; unit and UI tests now run on the Windows and macOS runners
+
 ## 0.23.0 — 2026-11-11
 
 - feat(ui): dropped files are processed in the background without the window; opt-in setting shows it

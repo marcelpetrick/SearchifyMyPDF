@@ -37,7 +37,12 @@ HOME = Path("/home/u")
         ),
         ("Windows", {}, "/home/u/AppData/Roaming/Searchify PDF"),
         ("Darwin", {}, "/home/u/Library/Application Support/Searchify PDF"),
-        ("Linux", {"XDG_CONFIG_HOME": "/cfg"}, "/cfg/searchify-pdf"),
+        pytest.param(
+            "Linux",
+            {"XDG_CONFIG_HOME": "/cfg"},
+            "/cfg/searchify-pdf",
+            marks=pytest.mark.skipif(os.name == "nt", reason="/cfg is not absolute on Windows"),
+        ),
         ("Linux", {"XDG_CONFIG_HOME": "relative"}, "/home/u/.config/searchify-pdf"),
         ("Linux", {}, "/home/u/.config/searchify-pdf"),
     ],

@@ -371,7 +371,7 @@ def test_check_text_reports_and_writes_nothing(tmp_path: Path) -> None:
     good = FakeEngine(quality=TextQuality(0.97, 1, Verdict.GOOD))
     code, out = run(["--check-text", "--password-file", str(passwords), str(tmp_path)], engine=good)
     assert code == cli.EXIT_OK
-    lines = {line.split(": ", 1)[0].rsplit("/", 1)[-1]: line for line in out.splitlines()}
+    lines = {Path(line.split(": ", 1)[0]).name: line for line in out.splitlines()}
     assert "text on 1 of 1 page(s). A fresh recognition of 1 page(s)" in lines["digital.pdf"]
     assert "97 %" in lines["digital.pdf"] and "looks good" in lines["digital.pdf"]
     assert lines["scan.pdf"].endswith("no existing text")

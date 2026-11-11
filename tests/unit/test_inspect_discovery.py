@@ -103,7 +103,9 @@ def test_invalid_inputs(tmp_path: Path, make: object, reason: Reason) -> None:
     assert reason.value in str(info.value)
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permissions")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="POSIX permissions; root ignores them"
+)
 def test_unreadable(tmp_path: Path) -> None:
     path = synthetic.scanned_pdf(tmp_path / "u.pdf")
     path.chmod(0)
@@ -241,7 +243,9 @@ def test_destination_collides_with_explicit_source(tmp_path: Path) -> None:
     assert result.omissions[0].reason is Reason.DESTINATION_COLLISION
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permissions")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="POSIX permissions; root ignores them"
+)
 def test_unreadable_subfolder_reported(tmp_path: Path) -> None:
     ok = _touch(tmp_path / "ok.pdf")
     locked = tmp_path / "locked"

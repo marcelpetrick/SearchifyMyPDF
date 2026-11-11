@@ -253,7 +253,9 @@ def test_unreadable_file(tmp_path: Path) -> None:
     assert loaded.error in {"write_failed", "permission_denied"}
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permissions")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="POSIX permissions; root ignores them"
+)
 def test_read_only_directory(tmp_path: Path) -> None:
     repo = SettingsRepository(tmp_path)
     fp = repo.save(Settings(), None)

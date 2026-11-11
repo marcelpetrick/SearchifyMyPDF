@@ -44,10 +44,19 @@ jobs:
           python-version: "3.12"
       - name: Install Tesseract (Chocolatey)
         if: runner.os == 'Windows'
-        run: choco install tesseract --version 5.5.3.20260724 --no-progress -y  # newest on Chocolatey
+        run: |
+          choco install tesseract --version 5.5.3.20260724 --no-progress -y  # newest on Chocolatey
+          echo "C:\\Program Files\\Tesseract-OCR" >> "$GITHUB_PATH"  # for the tests below
       - name: Install Tesseract, bash and coreutils (Homebrew)
         if: runner.os == 'macOS'
         run: brew install tesseract bash coreutils
+      - name: Unit and UI tests on this OS
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          scripts/fetch_tessdata.sh .cache/tessdata  # pinned eng/deu/osd, as on Linux
+          uv sync --frozen
+          uv run pytest -m "not ocr and not e2e" -q -p no:cacheprovider tests/unit tests/ui
       - name: Build and smoke-test the executable
         run: scripts/build_native_binary.sh dist/binary
       - name: Upload executable

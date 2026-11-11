@@ -14,10 +14,13 @@ describes the protection so the copy can be encrypted the same way again
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import secrets
 import threading
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pikepdf
 import pypdfium2
@@ -26,6 +29,11 @@ from searchify_pdf.domain.jobs import Reason
 
 MARKER_KEY = "/SearchifyPDF"
 _PDFIUM_LOCK = threading.Lock()
+# qpdf's encryption code is not thread-safe in every build: on Windows, opening a
+# protected PDF while another worker thread encrypts or decrypts one fails with
+# "invalid password". These operations take milliseconds next to OCR, so all pikepdf
+# access in this process is serialized (OCR itself runs in a separate worker process).
+_PIKEPDF_LOCK = threading.Lock()
 MIN_TEXT_CHARS = 1
 
 
@@ -119,10 +127,16 @@ def _password_error(password: str, exc: Exception) -> PdfInspectionError:
     return PdfInspectionError(reason, str(exc))
 
 
+@contextlib.contextmanager
+def _open_pdf(path: Path, **kwargs: Any) -> Iterator[pikepdf.Pdf]:
+    with _PIKEPDF_LOCK, pikepdf.open(path, **kwargs) as pdf:
+        yield pdf
+
+
 def has_marker(path: Path) -> bool:
     """True when the PDF carries the Searchify output marker (cheap metadata check)."""
     try:
-        with pikepdf.open(path) as pdf:
+        with _open_pdf(path) as pdf:
             return MARKER_KEY in pdf.docinfo
     except (pikepdf.PdfError, OSError, ValueError):
         return False
@@ -152,7 +166,7 @@ def inspect_pdf(path: Path, password: str = "") -> PdfInfo:
     ``password_required``, with a wrong one ``wrong_password``.
     """
     try:
-        with pikepdf.open(path, password=password) as pdf:
+        with _open_pdf(path, password=password) as pdf:
             protection = None
             if pdf.is_encrypted:
                 protection = Protection(password, bool(pdf.owner_password_matched), pdf.allow)
@@ -176,13 +190,13 @@ def inspect_pdf(path: Path, password: str = "") -> PdfInfo:
 
 def count_pages(path: Path, password: str = "") -> int:
     """Page count used for output validation; raises on an unreadable PDF."""
-    with pikepdf.open(path, password=password) as pdf:
+    with _open_pdf(path, password=password) as pdf:
         return len(pdf.pages)
 
 
 def decrypt_copy(source: Path, password: str, target: Path) -> None:
     """Write an unencrypted copy of ``source`` to ``target`` (a private work file)."""
-    with pikepdf.open(source, password=password) as pdf:
+    with _open_pdf(source, password=password) as pdf:
         pdf.save(target)
 
 
@@ -198,12 +212,12 @@ def encrypt_like(plain: Path, target: Path, protection: Protection) -> None:
     encryption = pikepdf.Encryption(
         owner=owner, user=protection.password, R=6, allow=protection.permissions
     )
-    with pikepdf.open(plain) as pdf:
+    with _open_pdf(plain) as pdf:
         pdf.save(target, encryption=encryption)
 
 
 def add_marker(path: Path, version: str) -> None:
     """Stamp our generator marker into the document info of a staging file in place."""
-    with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+    with _open_pdf(path, allow_overwriting_input=True) as pdf:
         pdf.docinfo[MARKER_KEY] = pikepdf.String(version)
         pdf.save(path)

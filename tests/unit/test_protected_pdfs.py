@@ -183,7 +183,8 @@ def test_decrypted_work_files_are_private_and_removed(
         resources=lambda: (8, 64 * GIB),
     )
     assert runner.run([src]).results[0].outcome is Outcome.CONVERTED
-    assert seen and seen[0][0].parent.parent == work and seen[0][1] == 0o700
+    assert seen and seen[0][0].parent.parent == work
+    assert os.name == "nt" or seen[0][1] == 0o700  # mkdtemp: owner-only on POSIX
     assert list(work.iterdir()) == []
     assert sorted(p.name for p in docs.iterdir()) == ["e.pdf", "e_searchable.pdf"]
 
@@ -383,3 +384,26 @@ def test_cli_non_interactive_protected_pdf_reports_password_required(
         engine_factory=FakeEngine,
     )
     assert code == 1 and "--password-file" in out.getvalue()
+
+
+def test_pikepdf_access_is_serialized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """qpdf's crypto is not thread-safe on Windows: every open happens under one lock."""
+    from searchify_pdf.engines import pdf_inspect
+
+    opened: list[bool] = []
+    real_open = pikepdf.open
+
+    def checked_open(*args: object, **kwargs: object) -> pikepdf.Pdf:
+        opened.append(pdf_inspect._PIKEPDF_LOCK.locked())
+        return real_open(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pdf_inspect.pikepdf, "open", checked_open)
+    a = synthetic.encrypted_pdf(tmp_path / "a.pdf")
+    r = synthetic.restricted_pdf(tmp_path / "r.pdf")
+    opened.clear()  # only the application's opens count, not the fixtures'
+    _, outcomes, _ = run(
+        [a, r], Settings(process_restricted_pdfs=True), decisions=PasswordPrompts(secret())
+    )
+    assert outcomes == [Outcome.CONVERTED] * 2
+    assert opened and all(opened)
+    assert not pdf_inspect._PIKEPDF_LOCK.locked()

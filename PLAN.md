@@ -235,3 +235,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.22.1 | 2026-11-11 | build(windows): bundle only the DLLs tesseract.exe imports, once (154.2 MB to 99.6 MB) |
 | 0.22.2 | 2026-11-11 | style(ui): calmer light theme (neutral surfaces), gridless results table, aligned settings labels, consistent fields |
 | 0.23.0 | 2026-11-11 | feat(ui): dropped files are processed in the background without the window; opt-in setting shows it |
+| 0.23.1 | 2026-11-11 | fix(windows): serialize pikepdf access so protected PDFs convert in parallel batches; unit and UI tests now run on the Windows and macOS runners |

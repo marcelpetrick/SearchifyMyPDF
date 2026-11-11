@@ -106,6 +106,8 @@ def kill_process_tree(process: subprocess.Popen[bytes]) -> None:
     for proc in alive:  # pragma: no cover
         with contextlib.suppress(psutil.NoSuchProcess):
             proc.kill()
+    with contextlib.suppress(subprocess.TimeoutExpired):  # pragma: no cover
+        process.wait(TERMINATE_GRACE_SECONDS)  # reap: sets returncode, frees the handle
 
 
 class OcrmypdfEngine:

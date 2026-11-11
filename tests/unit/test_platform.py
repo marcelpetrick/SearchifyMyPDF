@@ -80,7 +80,7 @@ def test_default_data_home() -> None:
 def test_open_folder(platform: str, program: str) -> None:
     calls: list[tuple[list[str], dict[str, Any]]] = []
     open_folder(Path("/tmp/x"), platform=platform, popen=lambda cmd, **kw: calls.append((cmd, kw)))
-    assert calls[0][0] == [program, "/tmp/x"]
+    assert calls[0][0] == [program, str(Path("/tmp/x"))]
     assert calls[0][1]["start_new_session"] is True
 
 

@@ -291,7 +291,9 @@ def test_invalid_form_disables_save(qtbot: QtBot, tmp_path: Path) -> None:
     assert "languages_empty" in window.settings_status.text()
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permissions")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="POSIX permissions; root ignores them"
+)
 def test_save_failure_keeps_changes_and_old_file(qtbot: QtBot, tmp_path: Path) -> None:
     SettingsRepository(tmp_path).save(Settings(), None)
     before = (tmp_path / SETTINGS_FILE_NAME).read_bytes()
