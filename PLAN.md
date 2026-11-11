@@ -237,3 +237,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.23.0 | 2026-11-11 | feat(ui): dropped files are processed in the background without the window; opt-in setting shows it |
 | 0.23.1 | 2026-11-11 | fix(windows): serialize pikepdf access so protected PDFs convert in parallel batches; unit and UI tests now run on the Windows and macOS runners |
 | 0.23.2 | 2026-11-11 | test(mutation): kill the five survivors of the first GitHub mutation run, record the 2026-11-11 baseline |
+| 0.23.3 | 2026-11-11 | fix(cli): on Windows, input from NUL (scheduled tasks, < NUL) is not a terminal, so Ask policies exit 3 instead of cancelling |

@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.23.3 — 2026-11-11
+
+- fix(cli): on Windows, input from NUL (scheduled tasks, < NUL) is not a terminal, so Ask policies exit 3 instead of cancelling
+
 ## 0.23.2 — 2026-11-11
 
 - test(mutation): kill the five survivors of the first GitHub mutation run, record the 2026-11-11 baseline

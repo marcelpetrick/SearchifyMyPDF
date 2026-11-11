@@ -49,6 +49,7 @@ from searchify_pdf.engines.pdf_inspect import (
 from searchify_pdf.i18n import quality_text, tr
 from searchify_pdf.platform.app_location import HOME_OVERRIDE
 from searchify_pdf.platform.components import load_inventory
+from searchify_pdf.platform.console import is_terminal
 from searchify_pdf.platform.desktop import (
     default_data_home,
     install_desktop_entry,
@@ -234,7 +235,7 @@ class TerminalDecisions:
 
     def _read_secret(self, prompt: str) -> str:
         """Hidden input on a real terminal; plain line input otherwise (EOFError on end)."""
-        if self.stdin.isatty():
+        if is_terminal(self.stdin):
             return getpass.getpass(prompt, stream=self.stdout)
         self.stdout.write(prompt)
         self.stdout.flush()
@@ -551,7 +552,7 @@ def main(
             return EXIT_USAGE
     if args.check_text:
         return check_text(settings, args.paths, engine_factory(), passwords, stdout)
-    interactive = not args.non_interactive and stdin.isatty()
+    interactive = not args.non_interactive and is_terminal(stdin)
     return run_headless(
         settings,
         args.paths,
