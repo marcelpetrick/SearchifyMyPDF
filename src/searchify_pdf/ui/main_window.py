@@ -255,9 +255,12 @@ class MainWindow(QMainWindow):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
+        self.table.setWordWrap(False)
         header_view = self.table.horizontalHeader()
+        header_view.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header_view.setSectionResizeMode(COL_FILE, QHeaderView.ResizeMode.ResizeToContents)
-        header_view.setSectionResizeMode(COL_FOLDER, QHeaderView.ResizeMode.Interactive)
+        header_view.setSectionResizeMode(COL_FOLDER, QHeaderView.ResizeMode.Stretch)
         header_view.setSectionResizeMode(COL_STATUS, QHeaderView.ResizeMode.ResizeToContents)
         header_view.setStretchLastSection(True)
         layout.addWidget(self.table, 1)
@@ -508,6 +511,7 @@ class MainWindow(QMainWindow):
         self.suffix_label.setText(t("settings.suffix"))
         self.restricted_box.setText(t("settings.restricted"))
         self.cross_check_box.setText(t("settings.cross_check"))
+        self._align_form_labels()
         self.workers_label.setText(t("settings.workers"))
         for i in range(self.worker_combo.count()):
             self.worker_combo.setItemText(i, t(f"workers.{self.worker_combo.itemData(i)}"))
@@ -542,6 +546,30 @@ class MainWindow(QMainWindow):
         self.refresh_statistics()
         if self.last_summary is not None:
             self._show_summary(self.last_summary)
+
+    def _align_form_labels(self) -> None:
+        """One label column across all settings groups (each group is its own form)."""
+        labels = (
+            self.languages_label,
+            self.text_policy_label,
+            self.output_policy_label,
+            self.suffix_label,
+            self.workers_label,
+            self.theme_label,
+            self.ui_language_label,
+        )
+        for label in labels:
+            label.setMinimumWidth(0)
+        width = max(label.sizeHint().width() for label in labels)
+        for label in labels:
+            label.setMinimumWidth(width)
+        for field in (
+            self.output_policy_combo,
+            self.suffix_edit,
+            self.theme_combo,
+            self.ui_language_combo,
+        ):
+            field.setMaximumWidth(420)
 
     def _refresh_engine_label(self) -> None:
         try:
