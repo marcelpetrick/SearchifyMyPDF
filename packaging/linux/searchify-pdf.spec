@@ -29,12 +29,47 @@ datas += collect_data_files("ocrmypdf")
 datas += collect_data_files("pikepdf")
 datas += collect_data_files("pypdfium2_raw")
 
-# Windows: tesseract.exe loads its DLLs from its own folder, so they travel with it into
-# bin/. Linux/macOS: PyInstaller resolves the shared-library dependencies itself.
+
+def _pe_imports(path):
+    """DLL names (lower case) a PE file imports, including delay-loaded ones."""
+    import pefile
+
+    pe = pefile.PE(path, fast_load=True)
+    pe.parse_data_directories(
+        directories=[
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"],
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT"],
+        ]
+    )
+    entries = getattr(pe, "DIRECTORY_ENTRY_IMPORT", []) + getattr(
+        pe, "DIRECTORY_ENTRY_DELAY_IMPORT", []
+    )
+    names = {entry.dll.decode("ascii", "replace").lower() for entry in entries}
+    pe.close()
+    return names
+
+
+def _dll_closure(exe, folder):
+    """The DLLs from ``folder`` that ``exe`` needs, directly or transitively."""
+    present = {
+        os.path.basename(dll).lower(): dll for dll in glob.glob(os.path.join(folder, "*.dll"))
+    }
+    needed, todo = set(), [exe]
+    while todo:
+        for name in _pe_imports(todo.pop()):
+            if name in present and name not in needed:
+                needed.add(name)
+                todo.append(present[name])
+    return sorted(present[name] for name in needed)
+
+
+# Windows: tesseract.exe loads its DLLs from its own folder, so exactly the DLLs it imports
+# (transitively; not the training tools' cairo/pango/ICU) travel with it into bin/.
+# Linux/macOS: PyInstaller resolves the shared-library dependencies itself.
 tesseract_binaries = [(tesseract, "bin")]
+tesseract_dir = os.path.dirname(os.path.abspath(tesseract))
 if sys.platform == "win32":
-    tesseract_dir = os.path.dirname(tesseract)
-    tesseract_binaries += [(dll, "bin") for dll in glob.glob(os.path.join(tesseract_dir, "*.dll"))]
+    tesseract_binaries += [(dll, "bin") for dll in _dll_closure(tesseract, tesseract_dir)]
 
 a = Analysis(
     [os.path.join(ROOT, "packaging/linux/entry.py")],
@@ -91,6 +126,28 @@ if trimmed_icu:
         for dest, src, kind in a.binaries
     ]
     assert any(src == trimmed_icu for _dest, src, _kind in a.binaries), "Qt ICU data not found"
+if sys.platform == "win32":
+    # Analysis also files bin/'s DLL dependencies at the top level, a second copy nobody
+    # loads (35 MB in 0.22.0). Drop a top-level copy from the Tesseract folder unless a
+    # binary outside bin/ (a Python extension, Qt) imports it.
+    in_bin = {os.path.basename(dest).lower() for dest, _src, _kind in a.binaries
+              if dest.lower().startswith("bin\\") or dest.lower().startswith("bin/")}
+    used_outside = set()
+    for dest, src, kind in a.binaries:
+        if kind == "BINARY" and not dest.lower().startswith(("bin\\", "bin/")) and (
+            os.path.dirname(os.path.abspath(src)).lower() != tesseract_dir.lower()
+        ):
+            used_outside |= _pe_imports(src)
+    a.binaries = [
+        (dest, src, kind)
+        for dest, src, kind in a.binaries
+        if not (
+            os.path.dirname(dest) == ""
+            and dest.lower() in in_bin
+            and dest.lower() not in used_outside
+            and os.path.dirname(os.path.abspath(src)).lower() == tesseract_dir.lower()
+        )
+    ]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

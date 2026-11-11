@@ -124,7 +124,8 @@ fixed on the way: invalid desktop entry (`Version=1.5`, two main categories).
 
 ### M3 / M4 — Windows, macOS
 Preview executables are built and smoke-tested on GitHub's Windows and macOS runners
-(`scripts/build_native_binary.sh`, `native.yml`) and attached to every release. Still
+(`scripts/build_native_binary.sh`, `native.yml`) and attached to every release. The Windows
+executable bundles only the DLLs `tesseract.exe` imports, once (99.6 MB, was 154.2 MB). Still
 open for full support: the full test suite on those platforms, Explorer/Finder drop
 integration, code signing/notarization (#12), installer/app bundle. Issues #10, #11.
 
@@ -226,3 +227,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.21.2 | 2026-11-10 | docs(release): mention the opt-in profile settings in the release notes |
 | 0.21.3 | 2026-11-10 | docs(readme): release badge tracks tag pushes only, coverage badge shows the measured 99.8 % / 99.4 % |
 | 0.22.0 | 2026-11-10 | feat(update): user-triggered update check against the latest GitHub release, offers the download page (#2 stage 1) |
+| 0.22.1 | 2026-11-11 | build(windows): bundle only the DLLs tesseract.exe imports, once (154.2 MB to 99.6 MB) |

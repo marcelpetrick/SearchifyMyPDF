@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.22.1 — 2026-11-11
+
+- build(windows): bundle only the DLLs tesseract.exe imports, once (154.2 MB to 99.6 MB)
+
 ## 0.22.0 — 2026-11-10
 
 - feat(update): user-triggered update check against the latest GitHub release, offers the download page (#2 stage 1)
