@@ -30,3 +30,5 @@ searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_read_bytes__mu
 searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁsave__mutmut_18
 # Retry count of the settings lock (20 vs 21 attempts) is timing, not behaviour
 searchify_pdf.storage.settings_repository.xǁSettingsRepositoryǁ_acquire__mutmut_1
+# sample_pages: at exactly `limit` pages the spread picks round(i*(n-1)/(n-1)) == i, i.e. all pages
+searchify_pdf.domain.text_quality.x_sample_pages__mutmut_4

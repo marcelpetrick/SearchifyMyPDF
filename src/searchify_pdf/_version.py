@@ -2,4 +2,4 @@
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
 """Version of Searchify PDF (single source of truth, bumped by scripts/bump_version.py)."""
 
-__version__ = "0.23.1"
+__version__ = "0.23.2"

@@ -248,6 +248,7 @@ def test_publisher_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     with pytest.raises(PublishError) as info:
         validate_output(good, 2)
     assert info.value.detail == "1 pages, expected 2"
+    validate_output(synthetic.restricted_pdf(tmp_path / "r.pdf"), 1)  # opens without a password
     with pytest.raises(PublishError) as info:
         validate_output(tmp_path / "missing.pdf", 1)
     assert "missing.pdf" in info.value.detail

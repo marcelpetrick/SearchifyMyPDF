@@ -66,14 +66,14 @@ def test_resolution_order(tmp_path: Path) -> None:
     # the opt-in left a settings file in the profile: use it
     SettingsRepository(profile).save(Settings(), None)
     home = resolve_settings_home(app, profile, overridden=False)
-    assert (home.directory, home.location) == (profile, Location.PROFILE)
+    assert home == settings_location.SettingsHome(profile, Location.PROFILE, app, profile)
     # a settings file next to the app always wins
     SettingsRepository(app).save(Settings(), None)
     home = resolve_settings_home(app, profile, overridden=False)
     assert (home.directory, home.location) == (app, Location.PORTABLE)
     # the override wins over both
     home = resolve_settings_home(app, profile, overridden=True)
-    assert (home.directory, home.location, home.profile_dir) == (app, Location.OVERRIDE, profile)
+    assert home == settings_location.SettingsHome(app, Location.OVERRIDE, app, profile)
 
 
 def test_current_settings_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

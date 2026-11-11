@@ -22,11 +22,18 @@ workflow/fault tests; mutating sleep/timeout code mostly yields timing-only muta
 | --- | --- | --- | --- | --- | --- |
 | 2026-11-10 first run | 998 | 785 | 0 | 213 | 78.7 % |
 | 2026-11-10 after review | 998 | 979 | 19 | 0 | 100 % of non-equivalent |
+| 2026-11-11 first GitHub run | 1125 | 1101 | 19 | 5 | 99.5 % |
+| 2026-11-11 after review | 1125 | 1105 | 20 | 0 | 100 % of non-equivalent |
 
 The first run showed weak assertions on error *details* (codes were checked, the
 offending values were not), incomplete round-trip checks of the statistics file,
 unasserted omission paths in discovery, and missing boundary checks. Tests were added in
 `tests/unit/test_mutation_hardening.py`.
+
+The 2026-11-11 run (the first one on GitHub, after the profile-settings and protected-PDF
+work) left five survivors: unasserted `app_dir`/`profile_dir` fields of the resolved
+settings home, the untested default password of `validate_output`, and one equivalent
+`sample_pages` boundary (at exactly the limit, both branches return every page).
 
 ## Threshold
 
