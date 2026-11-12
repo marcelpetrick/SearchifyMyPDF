@@ -33,7 +33,9 @@ def test_python_m_searchify_pdf_cli(tmp_path: Path) -> None:
         check=False,
     )
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "1 converted" in done.stdout
+    if sys.platform.startswith("linux"):  # no display there: falls back to the console run
+        assert "1 converted" in done.stdout
+    # Windows/macOS always have a desktop: the drop launch runs silently in the background
     out = tmp_path / "in" / "nested dir" / "scan_searchable.pdf"
     assert contains_words(all_text(out), ["Searchable", "invoice"])
     again = subprocess.run(
@@ -47,6 +49,9 @@ def test_python_m_searchify_pdf_cli(tmp_path: Path) -> None:
     assert again.returncode == 3  # Ask policy, no terminal: needs a decision, never hangs
 
 
+@pytest.mark.skipif(
+    os.name == "nt", reason="Windows cannot send SIGINT/SIGTERM to a child; SIGTERM is a hard kill"
+)
 @pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGINT])
 def test_signal_cancels_a_headless_run_cleanly(tmp_path: Path, signum: int) -> None:
     """Ctrl+C / `docker stop` cancel the batch, kill OCR and leave no partial copies."""

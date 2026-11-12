@@ -57,6 +57,10 @@ jobs:
           scripts/fetch_tessdata.sh .cache/tessdata  # pinned eng/deu/osd, as on Linux
           uv sync --frozen
           uv run pytest -m "not ocr and not e2e" -q -p no:cacheprovider tests/unit tests/ui
+      - name: OCR integration tests on this OS (real Tesseract)
+        env:
+          TESSDATA_PREFIX: ${{ github.workspace }}/.cache/tessdata
+        run: uv run pytest -m "ocr and not e2e" -q -p no:cacheprovider tests/integration tests/unit tests/ui
       - name: Build and smoke-test the executable
         run: scripts/build_native_binary.sh dist/binary
       - name: Upload executable

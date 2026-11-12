@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.23.4 — 2026-11-12
+
+- ci(native): run the real-OCR integration tests on the Windows and macOS runners; make the hard-kill and drop-launch tests portable
+
 ## 0.23.3 — 2026-11-11
 
 - fix(cli): on Windows, input from NUL (scheduled tasks, < NUL) is not a terminal, so Ask policies exit 3 instead of cancelling

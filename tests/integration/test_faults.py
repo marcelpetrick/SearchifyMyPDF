@@ -67,7 +67,13 @@ def test_hard_kill_during_ocr_then_recovery(tmp_path: Path) -> None:
         time.sleep(0.05)
     time.sleep(0.5)
     children = psutil.Process(proc.pid).children(recursive=True)
-    os.killpg(proc.pid, signal.SIGKILL)  # power-cut style interruption: no cleanup runs
+    # power-cut style interruption: no cleanup runs
+    if os.name == "posix":
+        os.killpg(proc.pid, signal.SIGKILL)
+    else:  # Windows has no process groups to signal: kill the whole tree directly
+        for victim in [psutil.Process(proc.pid), *children]:
+            with contextlib.suppress(psutil.NoSuchProcess):
+                victim.kill()
     proc.wait(30)
     for child in children:
         with contextlib.suppress(psutil.NoSuchProcess):
