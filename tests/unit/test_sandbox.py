@@ -56,6 +56,8 @@ class FakeLibc:
 
 @pytest.fixture
 def linux(monkeypatch: pytest.MonkeyPatch) -> None:
+    if sys.platform != "linux":  # the code opens rule paths with Linux-only O_PATH
+        pytest.skip("Landlock rules need a Linux host")
     monkeypatch.delenv(sandbox.DISABLE_ENV, raising=False)
     monkeypatch.setattr(sandbox.platform, "system", lambda: "Linux")
     monkeypatch.setattr(sandbox.platform, "machine", lambda: "x86_64")

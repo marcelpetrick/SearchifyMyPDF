@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.24.1 — 2026-11-12
+
+- test(sandbox): run the fake-libc Landlock tests only on Linux hosts (O_PATH is Linux-only)
+
 ## 0.24.0 — 2026-11-12
 
 - feat(security): sandbox the OCR worker on Linux with Landlock and seccomp (writes only to its temp folder and the copy, no network) (#13)
