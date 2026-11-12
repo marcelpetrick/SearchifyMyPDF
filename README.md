@@ -54,6 +54,9 @@ modified, and no Python or OCR installation is needed.
   Signed PDFs are rejected. See [`docs/adr/0011-protected-pdfs.md`](docs/adr/0011-protected-pdfs.md).
 - **Safe publishing:** staged in the target folder, validated, then atomically published;
   failures, cancellation, full disks or crashes never damage the previous copy.
+- **Sandboxed OCR on Linux:** the process that parses your PDFs can write only to its own
+  temporary folder and the new copy, and has no network (Landlock + seccomp,
+  [ADR 0016](docs/adr/0016-worker-sandbox.md)).
 - **Parallel but bounded:** Automatic, one-after-another, or a fixed number of documents;
   one shared CPU budget; cancel kills OCR processes cleanly.
 - **Portable settings** in `searchify-pdf.settings.json` next to the app; Save / Discard /

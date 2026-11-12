@@ -11,7 +11,10 @@ OCRmyPDF exit code; diagnostics go to stderr.
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
+from pathlib import Path
 from typing import Any
 
 WORKER_FLAG = "--searchify-engine-worker"
@@ -39,6 +42,33 @@ def build_kwargs(request: dict[str, Any]) -> dict[str, Any]:
     return kwargs
 
 
+def _coverage_data_dirs() -> list[Path]:
+    """The test suite measures workers with coverage.py; let it save its data file.
+
+    Never applies to the shipped application, which does not include coverage.py.
+    """
+    coverage = sys.modules.get("coverage")
+    current = coverage.Coverage.current() if coverage is not None else None
+    if current is None:
+        return []
+    return [Path(current.config.data_file).resolve().parent]
+
+
+def confine(output: Path) -> None:
+    """Sandbox this worker before it parses anything (#13, ADR 0016).
+
+    Writable: the private temporary folder the engine gave this worker (``TMPDIR``) and
+    the output file, created empty here so it can be granted on its own.
+    """
+    from searchify_pdf.engines import sandbox
+
+    output.touch()
+    writable = [Path(tempfile.gettempdir()), *_coverage_data_dirs()]
+    # /dev/null: subprocess opens it read-write for helpers such as the JBIG2 decoder
+    report = sandbox.apply(writable, [output, Path(os.devnull)])
+    print(report.describe(), file=sys.stderr, flush=True)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 1:
         print("usage: worker '<json request>'", file=sys.stderr)
@@ -49,6 +79,7 @@ def main(argv: list[str]) -> int:
     except (ValueError, KeyError, TypeError) as exc:
         print(f"invalid worker request: {exc}", file=sys.stderr)
         return 1
+    confine(Path(request["output"]))
     import ocrmypdf
     from ocrmypdf.exceptions import ExitCodeException
 

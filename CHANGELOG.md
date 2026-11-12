@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.24.0 — 2026-11-12
+
+- feat(security): sandbox the OCR worker on Linux with Landlock and seccomp (writes only to its temp folder and the copy, no network) (#13)
+
 ## 0.23.4 — 2026-11-12
 
 - ci(native): run the real-OCR integration tests on the Windows and macOS runners; make the hard-kill and drop-launch tests portable

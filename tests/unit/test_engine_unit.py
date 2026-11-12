@@ -58,6 +58,8 @@ def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
     from ocrmypdf.exceptions import EncryptedPdfError
 
     req = json.dumps({"source": "a", "output": "b", "languages": ["eng"], "mode": "preserve_text"})
+    confined: list[Path] = []
+    monkeypatch.setattr(worker, "confine", confined.append)  # never sandbox pytest itself
 
     def encrypted(**_: object) -> int:
         raise EncryptedPdfError("locked")
@@ -72,6 +74,7 @@ def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
     assert worker.main([req]) == worker.OTHER_ERROR
     monkeypatch.setattr(ocrmypdf, "ocr", lambda **_: 0)
     assert worker.main([req]) == 0
+    assert confined == [Path("b")] * 3  # confined before every conversion
 
 
 def test_redo_drops_deskew_with_note(tmp_path: Path) -> None:

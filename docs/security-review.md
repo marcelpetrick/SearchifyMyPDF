@@ -21,6 +21,9 @@ Leptonica and Tesseract parse untrusted input with the user's privileges.
 | 13 | Release tampering | Rebuilt or swapped binaries | Release promotes the exact tested artifact, verifies `SHA256SUMS`, draft for human review; Docker image with provenance + SBOM | `.github/workflows/release.yml`, `docker.yml` |
 | 14 | Docker | Container running as root on host files | Runs as uid 1000, no network needed (`--network none` in smoke test) | `scripts/docker_smoke.sh` |
 | 15 | Update check | Unwanted network traffic, spoofed answer, opening a hostile URL | Only on explicit request; one GET with a generic client name; TLS verified against the OS store; answer size-capped and schema-checked; pre-releases ignored; only this project's release URLs (https) are opened; nothing downloaded (ADR 0014) | `test_updates.py`, `test_open_url`, `test_check_for_updates`, native smoke step 6 |
+| 16 | Native parser exploit | A crafted PDF/image takes over qpdf, Leptonica or Tesseract in the worker and damages or sends away the user's files | On Linux the worker sandboxes itself before parsing (ADR 0016): Landlock allows writes only to its private temp folder and the output file, no TCP; seccomp allows only `AF_UNIX` sockets and no io_uring; inherited by Tesseract. Reading stays possible; Windows/macOS not yet | `test_sandbox.py` (real kernel check in a child), all OCR integration tests run sandboxed |
 
-Residual risks (tracked as issues): memory-safety bugs in native parsers (keep dependencies
-current; consider seccomp/bubblewrap sandboxing of the worker); no binary signing yet.
+Residual risks (tracked as issues): memory-safety bugs in native parsers. The Linux worker
+is sandboxed (row 16, ADR 0016), but a compromised parser can still read files, and the
+main process and the Windows/macOS workers are not sandboxed (#13). No binary signing
+yet (#12).

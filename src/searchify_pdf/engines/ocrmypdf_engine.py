@@ -196,7 +196,12 @@ class OcrmypdfEngine:
         payload, notes = self.build_request_json(request)
         env = dict(os.environ)
         env["OMP_THREAD_LIMIT"] = "1"  # Tesseract threads share the document budget
-        with tempfile.TemporaryFile() as log:
+        # A private temporary folder per worker: the sandboxed worker may only write there
+        # (and to its output file); removed here even after a hard kill.
+        workdir = tempfile.TemporaryDirectory(prefix="searchify-ocr-", ignore_cleanup_errors=True)
+        for name in ("TMPDIR", "TEMP", "TMP"):
+            env[name] = workdir.name
+        with workdir, tempfile.TemporaryFile() as log:
             try:
                 process = subprocess.Popen(
                     [*self._command(), payload],
