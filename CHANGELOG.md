@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.27.1 — 2026-11-13
+
+- build(deps): pikepdf 10.18.1, coverage 7.17.3, ruff 0.17.5, types-psutil 7.2.2.20261111, uv 0.13.8
+
 ## 0.27.0 — 2026-11-13
 
 - feat(security): sandbox the OCR worker and the PDF service on macOS (Seatbelt) and Windows (Low integrity); the worker writes its output through a handle opened before the sandbox (#13)
