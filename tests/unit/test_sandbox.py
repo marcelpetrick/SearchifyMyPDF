@@ -73,10 +73,8 @@ def test_rights_grow_with_the_abi() -> None:
     assert sandbox.write_rights(2) & sandbox.FS_REFER
     assert sandbox.write_rights(2) & sandbox.FS_TRUNCATE == 0
     assert sandbox.write_rights(3) & sandbox.FS_TRUNCATE
-    assert sandbox.file_rights(2) == sandbox.FS_WRITE_FILE
-    assert sandbox.file_rights(3) == sandbox.FS_WRITE_FILE | sandbox.FS_TRUNCATE
-    for abi in (1, 3):  # reading and executing are never restricted
-        assert sandbox.write_rights(abi) & 0b1101 == 0
+    for abi in (1, 3):  # write rights never include reading or executing
+        assert sandbox.write_rights(abi) & sandbox.READ_RIGHTS == 0
 
 
 def test_seccomp_program_jumps_stay_inside_and_end_in_returns() -> None:
@@ -108,12 +106,95 @@ def test_full_sandbox_with_network_rules(tmp_path: Path, monkeypatch: pytest.Mon
         sandbox.write_rights(4),
         sandbox.NET_BIND_TCP | sandbox.NET_CONNECT_TCP,
     )
-    assert libc.rules == [sandbox.write_rights(4), sandbox.file_rights(4)]
+    assert libc.rules == [
+        sandbox.write_rights(4),
+        sandbox.FS_WRITE_FILE | sandbox.FS_TRUNCATE,
+    ]
     assert libc.calls[0] == ("prctl", sandbox._PR_SET_NO_NEW_PRIVS)  # before any restriction
     assert libc.calls[-1] == ("prctl", sandbox._PR_SET_SECCOMP)
     assert report.describe() == (
-        "sandbox: landlock abi 4 (files + network), seccomp (no network sockets)"
+        "sandbox: landlock abi 4 (writes, network), seccomp (no network sockets)"
     )
+
+
+@pytest.mark.usefixtures("linux")
+def test_read_restriction_grants_only_named_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    libc = use(monkeypatch, FakeLibc(abi=3))
+    out, source = tmp_path / "out.pdf", tmp_path / "in.pdf"
+    out.touch()
+    source.touch()
+    report = sandbox.apply(
+        [tmp_path],
+        [out],
+        readable_dirs=[tmp_path, tmp_path / "missing"],
+        readable_files=[source, tmp_path / "gone.pdf"],
+    )
+    assert report == SandboxReport(landlock_abi=3, landlock_reads=True, seccomp=True)
+    handled = sandbox.write_rights(3) | sandbox.READ_RIGHTS
+    assert struct.unpack("<Q", libc.attr) == (handled,)
+    file_write = sandbox.FS_WRITE_FILE | sandbox.FS_TRUNCATE | sandbox.FS_READ_FILE
+    file_read = sandbox.FS_READ_FILE | sandbox.FS_EXECUTE
+    # missing paths are skipped; the executable is granted as a file, never its folder
+    assert libc.rules == [handled, file_write, sandbox.READ_RIGHTS, file_read, file_read]
+    assert report.describe() == (
+        "sandbox: landlock abi 3 (writes, reads), seccomp (no network sockets)"
+    )
+
+
+@pytest.mark.usefixtures("linux")
+def test_allow_reads_keeps_the_rest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    libc = use(monkeypatch, FakeLibc(abi=4))
+    monkeypatch.setenv(sandbox.DISABLE_ENV, "Allow-Reads")
+    report = sandbox.apply([tmp_path], readable_dirs=[tmp_path], readable_files=[tmp_path])
+    assert report == SandboxReport(landlock_abi=4, landlock_network=True, seccomp=True)
+    assert struct.unpack("<QQ", libc.attr)[0] == sandbox.write_rights(4)
+    assert libc.rules == [sandbox.write_rights(4)]
+
+
+@pytest.mark.usefixtures("linux")
+def test_read_restriction_is_not_reported_without_landlock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    use(monkeypatch, FakeLibc(abi=0))
+    report = sandbox.apply([tmp_path], readable_dirs=[tmp_path])
+    assert report == SandboxReport(seccomp=True)
+
+
+def test_runtime_read_dirs_never_include_the_home_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    tools = home / ".local" / "bin"
+    prefix = tmp_path / "opt" / "brew"
+    tessdata = tmp_path / "tessdata"
+    for folder in (tools, prefix / "bin", tessdata):
+        folder.mkdir(parents=True)
+    monkeypatch.chdir(home)
+    monkeypatch.setattr(sandbox.sys, "path", ["", str(home), str(tmp_path / "nowhere"), "rel"])
+    env = {
+        "PATH": os.pathsep.join([str(tools), str(prefix / "bin"), "relative", ""]),
+        "TESSDATA_PREFIX": str(tessdata),
+    }
+    found = sandbox.runtime_read_dirs(env, home)
+    assert tools.resolve() in found  # the folder itself, not ~/.local
+    assert (home / ".local").resolve() not in found
+    assert prefix.resolve() in found  # covers its bin folder (nested ones are dropped)
+    assert (prefix / "bin").resolve() not in found
+    assert tessdata.resolve() in found
+    assert all(not (p == home.resolve() or p in home.resolve().parents) for p in found)
+    assert tmp_path.resolve() not in found  # contains home
+    assert len(found) == len(set(found))
+    assert Path(sys.prefix).resolve() in found or Path(sys.prefix).resolve() in home.parents
+
+
+def test_runtime_read_dirs_include_the_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sandbox.sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert tmp_path.resolve() in sandbox.runtime_read_dirs({}, Path("/nonexistent-home"))
+    assert sandbox.runtime_read_dirs(dict(os.environ)) == sandbox.runtime_read_dirs(None)
 
 
 @pytest.mark.usefixtures("linux")
@@ -124,7 +205,7 @@ def test_older_kernel_without_network_rules(
     report = sandbox.apply([tmp_path])
     assert report == SandboxReport(landlock_abi=3, seccomp=True)
     assert struct.unpack("<Q", libc.attr) == (sandbox.write_rights(3),)
-    assert report.describe() == "sandbox: landlock abi 3 (files), seccomp (no network sockets)"
+    assert report.describe() == "sandbox: landlock abi 3 (writes), seccomp (no network sockets)"
 
 
 @pytest.mark.usefixtures("linux")
@@ -184,19 +265,26 @@ def test_other_systems_are_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_worker_confine_grants_temp_output_and_coverage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    seen: list[tuple[list[Path], list[Path]]] = []
+    seen: list[tuple[Any, ...]] = []
 
-    def fake_apply(dirs: list[Path], files: list[Path]) -> SandboxReport:
-        seen.append((dirs, files))
+    def fake_apply(dirs: list[Path], files: list[Path], **reads: Any) -> SandboxReport:
+        seen.append((dirs, files, reads))
         return SandboxReport(seccomp=True)
 
     monkeypatch.setattr(sandbox, "apply", fake_apply)
+    monkeypatch.setattr(sandbox, "runtime_read_dirs", lambda: [tmp_path / "rt"])
     monkeypatch.setattr(worker.tempfile, "gettempdir", lambda: str(tmp_path / "t"))
     monkeypatch.setattr(worker, "_coverage_data_dirs", lambda: [tmp_path / "cov"])
-    out = tmp_path / "out.pdf"
-    worker.confine(out)
+    out, source = tmp_path / "out.pdf", tmp_path / "in.pdf"
+    worker.confine(source, out)
     assert out.exists()  # created so it can be granted on its own
-    assert seen == [([tmp_path / "t", tmp_path / "cov"], [out, Path(os.devnull)])]
+    assert seen == [
+        (
+            [tmp_path / "t", tmp_path / "cov"],
+            [out, Path(os.devnull)],
+            {"readable_dirs": [tmp_path / "rt"], "readable_files": [source]},
+        )
+    ]
     assert "sandbox: seccomp" in capsys.readouterr().err
 
 
@@ -231,8 +319,13 @@ CHILD = textwrap.dedent("""
     import socket, sys
     from pathlib import Path
     from searchify_pdf.engines import sandbox
-    allowed, out, other = map(Path, sys.argv[1:4])
-    report = sandbox.apply([allowed], [out, Path("/dev/null")])
+    allowed, out, other, source = map(Path, sys.argv[1:5])
+    report = sandbox.apply(
+        [allowed],
+        [out, Path("/dev/null")],
+        readable_dirs=sandbox.runtime_read_dirs(),
+        readable_files=[source],
+    )
     print(report.describe())
     if report.landlock_abi == 0:
         raise SystemExit(0)
@@ -247,6 +340,11 @@ CHILD = textwrap.dedent("""
     attempt("write-other", lambda: (other / "a").write_text("x"))
     attempt("delete-output", out.unlink)
     attempt("read", lambda: Path(sys.executable).read_bytes()[:4])
+    attempt("read-source", source.read_bytes)
+    attempt("read-other", (other / "secret.txt").read_bytes)
+    attempt("list-other", lambda: list(other.iterdir()))
+    import json  # an import after confinement still loads from the runtime
+    attempt("import", lambda: __import__("email.mime.text"))
     attempt("tcp", lambda: socket.socket(socket.AF_INET, socket.SOCK_STREAM))
     attempt("udp", lambda: socket.socket(socket.AF_INET6, socket.SOCK_DGRAM))
     attempt("unix", lambda: socket.socket(socket.AF_UNIX).close())
@@ -259,13 +357,16 @@ def test_real_kernel_restrictions_in_a_child(tmp_path: Path) -> None:
     allowed, other = tmp_path / "allowed", tmp_path / "other"
     allowed.mkdir()
     other.mkdir()
-    out = tmp_path / "out.pdf"
+    (other / "secret.txt").write_text("private")
+    out, source = tmp_path / "out.pdf", tmp_path / "in.pdf"
     out.touch()
+    source.write_text("pdf")
     env = {k: v for k, v in os.environ.items() if k != sandbox.DISABLE_ENV}
     if "COVERAGE_PROCESS_START" in env or "COV_CORE_SOURCE" in env:  # pragma: no cover
         env.pop("COVERAGE_PROCESS_START", None)
     done = subprocess.run(
-        [sys.executable, "-c", CHILD, str(allowed), str(out), str(other)],
+        [sys.executable, "-c", CHILD, str(allowed), str(out), str(other), str(source)],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         env=env,
@@ -282,6 +383,10 @@ def test_real_kernel_restrictions_in_a_child(tmp_path: Path) -> None:
         "write-other": "denied",
         "delete-output": "denied",
         "read": "allowed",
+        "read-source": "allowed",
+        "read-other": "denied" if "reads" in lines[0] else "allowed",
+        "list-other": "denied" if "reads" in lines[0] else "allowed",
+        "import": "allowed",
         "tcp": "denied",
         "udp": "denied" if "seccomp" in lines[0] else results["udp"],
         "unix": "allowed",

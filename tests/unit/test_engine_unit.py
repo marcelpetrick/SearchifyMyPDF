@@ -59,7 +59,9 @@ def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
 
     req = json.dumps({"source": "a", "output": "b", "languages": ["eng"], "mode": "preserve_text"})
     confined: list[Path] = []
-    monkeypatch.setattr(worker, "confine", confined.append)  # never sandbox pytest itself
+    monkeypatch.setattr(
+        worker, "confine", lambda source, output: confined.append(output)
+    )  # never sandbox pytest itself
 
     def encrypted(**_: object) -> int:
         raise EncryptedPdfError("locked")

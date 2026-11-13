@@ -54,18 +54,24 @@ def _coverage_data_dirs() -> list[Path]:
     return [Path(current.config.data_file).resolve().parent]
 
 
-def confine(output: Path) -> None:
+def confine(source: Path, output: Path) -> None:
     """Sandbox this worker before it parses anything (#13, ADR 0016).
 
     Writable: the private temporary folder the engine gave this worker (``TMPDIR``) and
-    the output file, created empty here so it can be granted on its own.
+    the output file, created empty here so it can be granted on its own. Readable on
+    top of that: the runtime (:func:`sandbox.runtime_read_dirs`) and the source.
     """
     from searchify_pdf.engines import sandbox
 
     output.touch()
     writable = [Path(tempfile.gettempdir()), *_coverage_data_dirs()]
     # /dev/null: subprocess opens it read-write for helpers such as the JBIG2 decoder
-    report = sandbox.apply(writable, [output, Path(os.devnull)])
+    report = sandbox.apply(
+        writable,
+        [output, Path(os.devnull)],
+        readable_dirs=sandbox.runtime_read_dirs(),
+        readable_files=[source],
+    )
     print(report.describe(), file=sys.stderr, flush=True)
 
 
@@ -79,7 +85,7 @@ def main(argv: list[str]) -> int:
     except (ValueError, KeyError, TypeError) as exc:
         print(f"invalid worker request: {exc}", file=sys.stderr)
         return 1
-    confine(Path(request["output"]))
+    confine(Path(request["source"]), Path(request["output"]))
     import ocrmypdf
     from ocrmypdf.exceptions import ExitCodeException
 

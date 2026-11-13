@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.25.0 — 2026-11-13
+
+- feat(security): the Linux OCR worker may read only the runtime and its source document, no other user files (#13)
+
 ## 0.24.1 — 2026-11-12
 
 - test(sandbox): run the fake-libc Landlock tests only on Linux hosts (O_PATH is Linux-only)

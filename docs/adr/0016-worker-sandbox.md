@@ -27,9 +27,15 @@ Before parsing anything, the worker restricts itself (`engines/sandbox.py`):
 2. **Landlock, files:** every write right (write, truncate, create, remove, rename,
    link) is denied except beneath the worker's private temporary folder and on its
    one output file (plus `/dev/null`, which helper processes open read-write). The engine creates that folder per document, passes it as
-   `TMPDIR` and removes it afterwards, even after a kill. Reading isn't
-   restricted: the interpreter, the bundled libraries and the language data live in
-   too many places to list reliably.
+   `TMPDIR` and removes it afterwards, even after a kill.
+   **Reading** (since 0.25.0) is allowed only for the source file, those writable
+   paths and the runtime (`runtime_read_dirs`): the system folders (`/usr`, `/lib*`,
+   `/etc`, `/opt`, `/proc`, `/sys`, `/dev`, …), the Python installation and import path,
+   the `PATH` and `LD_LIBRARY_PATH` entries (with their prefix, e.g. `/opt/brew`), the
+   PyInstaller bundle and `TESSDATA_PREFIX`. A folder that is the home folder or
+   contains it is never granted, so the working directory or `~/.local/bin`'s parent
+   can't open the user's documents. `/proc` is safe to grant because Landlock forbids
+   ptrace-style access (e.g. `/proc/<pid>/environ`) to processes outside the sandbox.
 3. **Landlock, network (ABI ≥ 4, Linux 6.7):** no TCP connect or bind.
 4. **seccomp:** `socket()` only for `AF_UNIX`, no `io_uring_setup`, and foreign
    syscall ABIs (i386 `int 0x80`, x32) refused. This closes UDP/raw sockets and works
@@ -38,13 +44,15 @@ Before parsing anything, the worker restricts itself (`engines/sandbox.py`):
 The sandbox is best effort. Layers the kernel doesn't support are skipped, and the
 worker logs one line saying what is active. It is Linux-only for now; Windows (AppContainer /
 job objects) and macOS (sandbox profiles) stay open in #13. `SEARCHIFY_PDF_SANDBOX=off`
-turns it off for troubleshooting. When coverage.py measures a worker (test suite only;
+turns it off for troubleshooting; `SEARCHIFY_PDF_SANDBOX=allow-reads` keeps everything
+but the read restriction, for installations with runtime files in unusual places. When coverage.py measures a worker (test suite only;
 it isn't shipped), its data folder is also writable.
 
 ## Consequences
 
-- A compromised parser can still **read** the user's files, but it can't modify,
-  encrypt or delete them, and it can't send them over the network.
+- A compromised parser can't modify, encrypt, delete or read the user's other files,
+  and it can't send anything over the network. It can read the runtime folders and
+  the one source document.
 - The main process still parses PDFs (pikepdf/PDFium for inspection, validation and
   re-encryption) outside the sandbox. Moving those into the worker is a later step.
 - Tests drive the logic against a fake libc and check the real kernel restrictions
