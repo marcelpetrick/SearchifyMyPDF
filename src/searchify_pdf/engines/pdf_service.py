@@ -144,15 +144,20 @@ class PdfService:
             process = self._process
             if process.stdin is None or process.stdout is None:  # pragma: no cover - PIPE
                 raise ServiceError(Reason.ENGINE_FAILED, "PDF service has no pipes")
-            timer = threading.Timer(self.timeout_seconds, process.kill)
+            expired = threading.Event()
+
+            def expire() -> None:
+                expired.set()  # before the kill, so the failing read sees it
+                process.kill()
+
+            timer = threading.Timer(self.timeout_seconds, expire)
             timer.start()
             try:
                 write_frame(process.stdin, {"op": op, "args": args}, blobs)
                 header, answer = read_frame(process.stdout)
             except (OSError, ProtocolError, struct.error) as exc:
-                timed_out = not timer.is_alive()
                 self._stop()
-                if timed_out:
+                if expired.is_set():
                     raise ServiceError(Reason.TIMEOUT, "PDF service took too long") from exc
                 raise ServiceError(Reason.INVALID_PDF, f"PDF service stopped: {exc}") from exc
             finally:

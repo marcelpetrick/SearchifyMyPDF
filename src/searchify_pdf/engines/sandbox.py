@@ -256,7 +256,9 @@ def runtime_read_dirs(env: Mapping[str, str] | None = None, home: Path | None = 
     home = (home or Path.home()).resolve()
     candidates = [Path(p) for p in SYSTEM_READ_DIRS]
     candidates += [Path(sys.prefix), Path(sys.base_prefix), Path(sys.exec_prefix)]
-    candidates += [Path(sys.executable).resolve().parent.parent]
+    if not getattr(sys, "frozen", False):  # a venv's bin/python → the venv; a frozen
+        # app's grandparent is just wherever the user saved the download
+        candidates += [Path(sys.executable).resolve().parent.parent]
     bundle = getattr(sys, "_MEIPASS", None)
     if bundle:
         candidates.append(Path(bundle))

@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.27.2 — 2026-11-13
+
+- fix(security): the packaged app no longer grants reads to the folder it was saved in, and a hung PDF service is always reported as a timeout (#13)
+
 ## 0.27.1 — 2026-11-13
 
 - build(deps): pikepdf 10.18.1, coverage 7.17.3, ruff 0.17.5, types-psutil 7.2.2.20261111, uv 0.13.8

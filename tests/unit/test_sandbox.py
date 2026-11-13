@@ -197,6 +197,20 @@ def test_runtime_read_dirs_include_the_bundle(
     assert sandbox.runtime_read_dirs(dict(os.environ)) == sandbox.runtime_read_dirs(None)
 
 
+def test_frozen_app_does_not_open_the_download_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    downloads = tmp_path / "home" / "Downloads"
+    (downloads / "tools").mkdir(parents=True)
+    binary = downloads / "tools" / "searchify-pdf"
+    binary.write_bytes(b"")
+    monkeypatch.setattr(sandbox.sys, "executable", str(binary))
+    assert downloads.resolve() in sandbox.runtime_read_dirs({}, Path("/nonexistent-home"))
+    monkeypatch.setattr(sandbox.sys, "frozen", True, raising=False)
+    found = sandbox.runtime_read_dirs({}, Path("/nonexistent-home"))
+    assert not any(p == downloads.resolve() or downloads.resolve() in p.parents for p in found)
+
+
 @pytest.mark.usefixtures("linux")
 def test_older_kernel_without_network_rules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
