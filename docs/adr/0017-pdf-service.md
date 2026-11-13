@@ -36,6 +36,9 @@ sandboxes itself with the ADR 0016 layers:
   path.
 - **Network:** none.
 
+On macOS the Seatbelt layer applies the same limits. On Windows the Low-integrity layer
+blocks writes only (ADR 0016).
+
 The application reads a file, sends its bytes with the request, and writes any document
 that comes back (`pdf_inspect` keeps its path-based API). The operations, in
 `engines/pdf_ops.py`, never touch the file system.

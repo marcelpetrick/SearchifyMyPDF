@@ -243,3 +243,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.24.1 | 2026-11-12 | test(sandbox): run the fake-libc Landlock tests only on Linux hosts (O_PATH is Linux-only) |
 | 0.25.0 | 2026-11-13 | feat(security): the Linux OCR worker may read only the runtime and its source document, no other user files (#13) |
 | 0.26.0 | 2026-11-13 | feat(security): parse every PDF in a sandboxed PDF service process, never in the application (#13) |
+| 0.27.0 | 2026-11-13 | feat(security): sandbox the OCR worker and the PDF service on macOS (Seatbelt) and Windows (Low integrity); the worker writes its output through a handle opened before the sandbox (#13) |

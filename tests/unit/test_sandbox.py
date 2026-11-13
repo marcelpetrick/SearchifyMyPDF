@@ -255,14 +255,7 @@ def test_can_be_disabled(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     assert report.disabled and report.describe() == "sandbox: disabled"
 
 
-def test_other_systems_are_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(sandbox.DISABLE_ENV, raising=False)
-    monkeypatch.setattr(sandbox.platform, "system", lambda: "Windows")
-    monkeypatch.setattr(sandbox, "_libc", lambda: pytest.fail("no libc calls"))
-    assert sandbox.apply([Path(".")]) == SandboxReport()
-
-
-def test_worker_confine_grants_temp_output_and_coverage(
+def test_worker_confine_grants_temp_and_coverage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     seen: list[tuple[Any, ...]] = []
@@ -275,13 +268,15 @@ def test_worker_confine_grants_temp_output_and_coverage(
     monkeypatch.setattr(sandbox, "runtime_read_dirs", lambda: [tmp_path / "rt"])
     monkeypatch.setattr(worker.tempfile, "gettempdir", lambda: str(tmp_path / "t"))
     monkeypatch.setattr(worker, "_coverage_data_dirs", lambda: [tmp_path / "cov"])
-    out, source = tmp_path / "out.pdf", tmp_path / "in.pdf"
-    worker.confine(source, out)
-    assert out.exists()  # created so it can be granted on its own
+    source = tmp_path / "in.pdf"
+    (tmp_path / "t").mkdir()
+    monkeypatch.chdir(tmp_path)  # restored afterwards; confine moves into the temp folder
+    worker.confine(source)
+    assert Path.cwd() == tmp_path / "t"
     assert seen == [
         (
             [tmp_path / "t", tmp_path / "cov"],
-            [out, Path(os.devnull)],
+            [Path(os.devnull)],  # the output is written through a handle opened before
             {"readable_dirs": [tmp_path / "rt"], "readable_files": [source]},
         )
     ]
@@ -391,5 +386,153 @@ def test_real_kernel_restrictions_in_a_child(tmp_path: Path) -> None:
         "udp": "denied" if "seccomp" in lines[0] else results["udp"],
         "unix": "allowed",
         "devnull": "allowed",
+    }
+    assert not (other / "a").exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Seatbelt profiles hold POSIX paths")
+def test_seatbelt_profile_denies_writes_user_data_reads_and_ip(tmp_path: Path) -> None:
+    from searchify_pdf.engines import sandbox_darwin
+
+    out, odd = tmp_path / "out.pdf", tmp_path / 'we"ird\\name'
+    text = sandbox_darwin.profile([tmp_path], [out], [Path("/opt/rt")], [odd])
+    lines = text.splitlines()
+    assert lines[:2] == ["(version 1)", "(allow default)"]
+    assert "(deny network-outbound (remote ip))" in lines
+    assert lines.index("(deny file-write*)") < next(
+        i for i, line in enumerate(lines) if line.startswith("(allow file-write*")
+    )
+    root = str(tmp_path.resolve())
+    assert f'(allow file-write* (subpath "{root}") (literal "{root}/out.pdf"))' in lines
+    deny_reads = next(line for line in lines if line.startswith("(deny file-read-data"))
+    assert '(subpath "/Users")' in deny_reads and '(subpath "/private/var/folders")' in deny_reads
+    allow_reads = lines[-1]
+    assert allow_reads.startswith("(allow file-read-data")
+    assert '(subpath "/opt/rt")' in allow_reads
+    assert '(literal "' + root + '/we\\"ird\\\\name")' in allow_reads  # quotes are escaped
+
+
+def test_seatbelt_profile_without_read_restriction() -> None:
+    from searchify_pdf.engines import sandbox_darwin
+
+    text = sandbox_darwin.profile([], [], None, [])
+    assert "file-read" not in text and "(allow file-write*" not in text
+    assert "(deny file-write*)" in text
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Seatbelt profiles hold POSIX paths")
+def test_macos_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(sandbox.DISABLE_ENV, raising=False)
+    monkeypatch.setattr(sandbox.platform, "system", lambda: "Darwin")
+    profiles: list[str] = []
+    monkeypatch.setattr(sandbox, "_seatbelt", lambda text: profiles.append(text) or True)
+    source = tmp_path / "in.pdf"
+    source.touch()
+    report = sandbox.apply([tmp_path], readable_dirs=[tmp_path], readable_files=[source])
+    assert report == SandboxReport(seatbelt=True, seatbelt_reads=True)
+    assert report.active
+    assert report.describe() == "sandbox: seatbelt (writes, reads, network)"
+    assert str(source.resolve()) in profiles[0] and "file-read-data" in profiles[0]
+    monkeypatch.setenv(sandbox.DISABLE_ENV, sandbox.ALLOW_READS)
+    assert sandbox.apply([tmp_path], readable_dirs=[tmp_path]).describe() == (
+        "sandbox: seatbelt (writes, network)"
+    )
+    assert "file-read-data" not in profiles[-1]
+
+    def refuse(text: str) -> bool:
+        raise OSError("no sandbox_init")
+
+    monkeypatch.setattr(sandbox, "_seatbelt", refuse)
+    assert sandbox.apply([tmp_path]) == SandboxReport()
+
+
+def test_windows_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(sandbox.DISABLE_ENV, raising=False)
+    monkeypatch.setattr(sandbox.platform, "system", lambda: "Windows")
+    seen: list[tuple[list[Path], list[Path]]] = []
+    monkeypatch.setattr(sandbox, "_low_integrity", lambda d, f: seen.append((d, f)) or True)
+    out = tmp_path / "out.pdf"
+    report = sandbox.apply([tmp_path], [out, Path("nul"), Path(os.devnull)], readable_dirs=[])
+    assert report == SandboxReport(low_integrity=True) and report.active
+    assert report.describe() == "sandbox: low integrity (writes)"
+    assert seen == [([tmp_path], [out])]  # the null device carries no label
+
+    def fail(d: list[Path], f: list[Path]) -> bool:
+        raise OSError("no advapi32")
+
+    monkeypatch.setattr(sandbox, "_low_integrity", fail)
+    assert sandbox.apply([tmp_path]) == SandboxReport()
+
+
+def test_unknown_systems_are_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(sandbox.DISABLE_ENV, raising=False)
+    monkeypatch.setattr(sandbox.platform, "system", lambda: "FreeBSD")
+    assert sandbox.apply([Path(".")]) == SandboxReport()
+
+
+NATIVE_CHILD = textwrap.dedent("""
+    import socket, sys
+    from pathlib import Path
+    from searchify_pdf.engines import sandbox
+    allowed, out, other, source = map(Path, sys.argv[1:5])
+    report = sandbox.apply(
+        [allowed], [out], readable_dirs=sandbox.runtime_read_dirs(), readable_files=[source]
+    )
+    print(report.describe())
+    def attempt(name, action):
+        try:
+            action()
+            print(name, "allowed")
+        except OSError:
+            print(name, "denied")
+    attempt("write-allowed", lambda: (allowed / "a").write_text("x"))
+    attempt("write-output", lambda: out.write_text("x"))
+    attempt("write-other", lambda: (other / "a").write_text("x"))
+    attempt("read-source", source.read_bytes)
+    attempt("read-other", (other / "secret.txt").read_bytes)
+    attempt("tcp", lambda: socket.create_connection(("127.0.0.1", int(sys.argv[5])), 5).close())
+    """)
+
+
+@pytest.mark.skipif(sys.platform not in {"darwin", "win32"}, reason="macOS/Windows layers")
+def test_real_native_sandbox_in_a_child(tmp_path: Path) -> None:
+    import socket
+
+    allowed, other = tmp_path / "allowed", tmp_path / "other"
+    allowed.mkdir()
+    other.mkdir()
+    (other / "secret.txt").write_text("private")
+    out, source = tmp_path / "out.pdf", tmp_path / "in.pdf"
+    out.touch()
+    source.write_text("pdf")
+    env = {k: v for k, v in os.environ.items() if k != sandbox.DISABLE_ENV}
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+        done = subprocess.run(
+            [sys.executable, "-c", NATIVE_CHILD, *map(str, (allowed, out, other, source, port))],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
+            check=True,
+            cwd=tmp_path,
+        )
+    lines = done.stdout.splitlines()
+    results = dict(line.split(" ", 1) for line in lines[1:])
+    if sys.platform == "darwin":
+        assert lines[0] == "sandbox: seatbelt (writes, reads, network)", done.stderr
+        denied_reads, denied_net = "denied", "denied"
+    else:
+        assert lines[0] == "sandbox: low integrity (writes)", done.stderr
+        denied_reads, denied_net = "allowed", "allowed"  # Low integrity limits writes only
+    assert results == {
+        "write-allowed": "allowed",
+        "write-output": "allowed",
+        "write-other": "denied",
+        "read-source": "allowed",
+        "read-other": denied_reads,
+        "tcp": denied_net,
     }
     assert not (other / "a").exists()

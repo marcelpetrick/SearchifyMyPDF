@@ -25,9 +25,12 @@ Before parsing anything, the worker restricts itself (`engines/sandbox.py`):
 
 1. `no_new_privs`, so the restrictions can't be shed through setuid binaries.
 2. **Landlock, files:** every write right (write, truncate, create, remove, rename,
-   link) is denied except beneath the worker's private temporary folder and on its
-   one output file (plus `/dev/null`, which helper processes open read-write). The engine creates that folder per document, passes it as
-   `TMPDIR` and removes it afterwards, even after a kill.
+   link) is denied except beneath the worker's private temporary folder (plus
+   `/dev/null`, which helper processes open read-write). The engine creates that folder
+   per document, passes it as `TMPDIR` and removes it afterwards, even after a kill.
+   The output is opened *before* the sandbox applies, and OCRmyPDF writes through
+   that handle, so the destination folder and the output path need no grant at all
+   (since 0.27.0).
    **Reading** (since 0.25.0) is allowed only for the source file, those writable
    paths and the runtime (`runtime_read_dirs`): the system folders (`/usr`, `/lib*`,
    `/etc`, `/opt`, `/proc`, `/sys`, `/dev`, …), the Python installation and import path,
@@ -42,11 +45,31 @@ Before parsing anything, the worker restricts itself (`engines/sandbox.py`):
    on older kernels without Landlock networking.
 
 The sandbox is best effort. Layers the kernel doesn't support are skipped, and the
-worker logs one line saying what is active. It is Linux-only for now; Windows (AppContainer /
-job objects) and macOS (sandbox profiles) stay open in #13. `SEARCHIFY_PDF_SANDBOX=off`
+worker logs one line saying what is active. `SEARCHIFY_PDF_SANDBOX=off`
 turns it off for troubleshooting; `SEARCHIFY_PDF_SANDBOX=allow-reads` keeps everything
 but the read restriction, for installations with runtime files in unusual places. When coverage.py measures a worker (test suite only;
 it isn't shipped), its data folder is also writable.
+
+### macOS and Windows (since 0.27.0)
+
+The same `sandbox.apply` call has a layer for each platform:
+
+- **macOS: a Seatbelt profile** (`sandbox_init`, `sandbox_darwin.py`). It is inherited
+  and can't be lifted. On top of `(allow default)` it denies:
+  - every write except the writable folders and files;
+  - IP networking (outbound, inbound, bind);
+  - reading file *contents* where user data lives (`/Users`, `/Volumes`, `/Network`,
+    the temporary folders), except the runtime folders, the executable and the named
+    files. Metadata stays readable, so path lookups work.
+- **Windows: Low integrity** (`sandbox_windows.py`). The writable folders (inheritably)
+  and files get a Low mandatory label first. Then the process lowers its own token to
+  Low, which it can't raise again and Tesseract inherits. Windows then refuses writes
+  to everything the user owns. Low integrity doesn't restrict reading or networking.
+  AppContainer would, but every runtime file would need an ACL grant, which a portable,
+  unpackaged program can't set up reliably. If a label can't be set, the token isn't
+  lowered. The output is written through a handle opened at Medium integrity
+  before lowering, so it never carries a Low label and the destination folder needs
+  none.
 
 ## Consequences
 

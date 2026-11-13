@@ -53,15 +53,19 @@ def test_worker_main_argument_errors(capsys: pytest.CaptureFixture[str]) -> None
     assert "invalid worker request" in capsys.readouterr().err
 
 
-def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import ocrmypdf
     from ocrmypdf.exceptions import EncryptedPdfError
 
+    monkeypatch.chdir(tmp_path)
     req = json.dumps({"source": "a", "output": "b", "languages": ["eng"], "mode": "preserve_text"})
     confined: list[Path] = []
-    monkeypatch.setattr(
-        worker, "confine", lambda source, output: confined.append(output)
-    )  # never sandbox pytest itself
+    monkeypatch.setattr(worker, "confine", confined.append)  # never sandbox pytest itself
+    streams: list[object] = []
+
+    def ok(**kwargs: object) -> int:
+        streams.append(kwargs["output_file"])
+        return 0
 
     def encrypted(**_: object) -> int:
         raise EncryptedPdfError("locked")
@@ -74,9 +78,27 @@ def test_worker_main_maps_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(ocrmypdf, "ocr", other)
     assert worker.main([req]) == worker.OTHER_ERROR
-    monkeypatch.setattr(ocrmypdf, "ocr", lambda **_: 0)
+    monkeypatch.setattr(ocrmypdf, "ocr", ok)
     assert worker.main([req]) == 0
-    assert confined == [Path("b")] * 3  # confined before every conversion
+    assert confined == [Path("a").absolute()] * 3  # confined before every conversion
+    # OCRmyPDF gets a handle opened before the sandbox, closed afterwards
+    assert getattr(streams[0], "name", "") == str(tmp_path / "b") and streams[0].closed  # type: ignore[attr-defined]
+
+
+def test_worker_reports_an_output_it_cannot_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(worker, "confine", lambda source: pytest.fail("never sandboxed"))
+    req = json.dumps(
+        {
+            "source": "a",
+            "output": str(tmp_path / "missing" / "b.pdf"),
+            "languages": ["eng"],
+            "mode": "preserve_text",
+        }
+    )
+    assert worker.main([req]) == worker.PERMISSION_ERROR
+    assert "cannot open the output" in capsys.readouterr().err
 
 
 def test_redo_drops_deskew_with_note(tmp_path: Path) -> None:

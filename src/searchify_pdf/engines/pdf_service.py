@@ -197,6 +197,7 @@ def confine() -> None:
     """Sandbox the service before it reads its first document."""
     from searchify_pdf.engines import sandbox
 
+    os.chdir(tempfile.gettempdir())  # the user's working directory stays out of reach
     report = sandbox.apply(
         [Path(tempfile.gettempdir()), *_coverage_data_dirs()],
         [Path(os.devnull)],

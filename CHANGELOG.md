@@ -7,6 +7,10 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.27.0 — 2026-11-13
+
+- feat(security): sandbox the OCR worker and the PDF service on macOS (Seatbelt) and Windows (Low integrity); the worker writes its output through a handle opened before the sandbox (#13)
+
 ## 0.26.0 — 2026-11-13
 
 - feat(security): parse every PDF in a sandboxed PDF service process, never in the application (#13)

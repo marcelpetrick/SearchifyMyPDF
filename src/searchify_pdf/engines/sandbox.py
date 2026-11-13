@@ -108,12 +108,15 @@ class SandboxReport:
     landlock_abi: int = 0  # 0: no file-system restriction
     landlock_network: bool = False
     landlock_reads: bool = False
+    seatbelt: bool = False  # macOS
+    seatbelt_reads: bool = False
+    low_integrity: bool = False  # Windows
     seccomp: bool = False
     disabled: bool = False
 
     @property
     def active(self) -> bool:
-        return self.landlock_abi > 0 or self.seccomp
+        return self.landlock_abi > 0 or self.seccomp or self.seatbelt or self.low_integrity
 
     def describe(self) -> str:
         if self.disabled:
@@ -128,6 +131,11 @@ class SandboxReport:
             parts.append(f"landlock abi {self.landlock_abi} ({', '.join(scope)})")
         if self.seccomp:
             parts.append("seccomp (no network sockets)")
+        if self.seatbelt:
+            reads = ", reads" if self.seatbelt_reads else ""
+            parts.append(f"seatbelt (writes{reads}, network)")
+        if self.low_integrity:
+            parts.append("low integrity (writes)")
         return "sandbox: " + (", ".join(parts) if parts else "not available")
 
 
@@ -274,6 +282,47 @@ def runtime_read_dirs(env: Mapping[str, str] | None = None, home: Path | None = 
     return [p for p in found if not any(o != p and _contains(o, p) for o in found)]
 
 
+def _apply_darwin(
+    writable_dirs: Iterable[Path],
+    writable_files: Iterable[Path],
+    readable_dirs: Iterable[Path] | None,
+    readable_files: Iterable[Path],
+    restrict_reads: bool,
+) -> SandboxReport:
+    from searchify_pdf.engines import sandbox_darwin
+
+    readable = [p for p in readable_dirs or () if Path(p).is_dir()] if restrict_reads else None
+    files = [p for p in (Path(sys.executable), *map(Path, readable_files)) if p.is_file()]
+    text = sandbox_darwin.profile(writable_dirs, writable_files, readable, files)
+    try:
+        applied = _seatbelt(text)
+    except (OSError, AttributeError, ValueError):
+        applied = False
+    return SandboxReport(seatbelt=applied, seatbelt_reads=applied and restrict_reads)
+
+
+def _seatbelt(text: str) -> bool:  # pragma: no cover - macOS only
+    from searchify_pdf.engines import sandbox_darwin
+
+    return sandbox_darwin.apply(text)
+
+
+def _apply_windows(writable_dirs: Iterable[Path], writable_files: Iterable[Path]) -> SandboxReport:
+    # NUL can't carry a label and needs none: devices aren't integrity-checked for writes
+    files = [Path(p) for p in writable_files if str(p).lower() not in {"nul", os.devnull}]
+    try:
+        lowered = _low_integrity(list(writable_dirs), files)
+    except (OSError, AttributeError, ValueError):
+        lowered = False
+    return SandboxReport(low_integrity=lowered)
+
+
+def _low_integrity(dirs: list[Path], files: list[Path]) -> bool:  # pragma: no cover - Windows
+    from searchify_pdf.engines import sandbox_windows
+
+    return sandbox_windows.apply(dirs, files)
+
+
 def apply(
     writable_dirs: Iterable[Path],
     writable_files: Iterable[Path] = (),
@@ -291,9 +340,16 @@ def apply(
     setting = os.environ.get(DISABLE_ENV, "").lower()
     if setting in {"off", "0", "false", "no"}:
         return SandboxReport(disabled=True)
-    if platform.system() != "Linux":
-        return SandboxReport()
     restrict_reads = readable_dirs is not None and setting != ALLOW_READS
+    system = platform.system()
+    if system == "Darwin":
+        return _apply_darwin(
+            writable_dirs, writable_files, readable_dirs, readable_files, restrict_reads
+        )
+    if system == "Windows":
+        return _apply_windows(writable_dirs, writable_files)
+    if system != "Linux":
+        return SandboxReport()
     handled = ~0 if restrict_reads else ~READ_RIGHTS
     rules = [(Path(p), ~0) for p in writable_dirs]
     rules += [(Path(p), FS_WRITE_FILE | FS_TRUNCATE | FS_READ_FILE) for p in writable_files]

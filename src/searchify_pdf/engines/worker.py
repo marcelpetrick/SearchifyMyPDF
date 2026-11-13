@@ -19,6 +19,7 @@ from typing import Any
 
 WORKER_FLAG = "--searchify-engine-worker"
 OTHER_ERROR = 15
+PERMISSION_ERROR = 5  # OCRmyPDF's "file access error"
 
 
 def build_kwargs(request: dict[str, Any]) -> dict[str, Any]:
@@ -54,21 +55,24 @@ def _coverage_data_dirs() -> list[Path]:
     return [Path(current.config.data_file).resolve().parent]
 
 
-def confine(source: Path, output: Path) -> None:
+def confine(source: Path) -> None:
     """Sandbox this worker before it parses anything (#13, ADR 0016).
 
-    Writable: the private temporary folder the engine gave this worker (``TMPDIR``) and
-    the output file, created empty here so it can be granted on its own. Readable on
-    top of that: the runtime (:func:`sandbox.runtime_read_dirs`) and the source.
+    Writable: only the private temporary folder the engine gave this worker
+    (``TMPDIR``); the output is written through a handle opened before (see
+    :func:`main`). Readable on top of that: the runtime
+    (:func:`sandbox.runtime_read_dirs`) and the source.
     """
     from searchify_pdf.engines import sandbox
 
-    output.touch()
+    # Work inside the private folder: the user's working directory may not be readable
+    # once sandboxed (macOS refuses even getcwd() then).
+    os.chdir(tempfile.gettempdir())
     writable = [Path(tempfile.gettempdir()), *_coverage_data_dirs()]
     # /dev/null: subprocess opens it read-write for helpers such as the JBIG2 decoder
     report = sandbox.apply(
         writable,
-        [output, Path(os.devnull)],
+        [Path(os.devnull)],
         readable_dirs=sandbox.runtime_read_dirs(),
         readable_files=[source],
     )
@@ -81,16 +85,28 @@ def main(argv: list[str]) -> int:
         return 1
     try:
         request = json.loads(argv[0])
+        for key in ("source", "output"):  # the sandboxed worker runs in its temp folder
+            request[key] = str(Path(request[key]).absolute())
         kwargs = build_kwargs(request)
     except (ValueError, KeyError, TypeError) as exc:
         print(f"invalid worker request: {exc}", file=sys.stderr)
         return 1
-    confine(Path(request["source"]), Path(request["output"]))
+    try:
+        # Opened before the sandbox: OCRmyPDF writes through this handle, so the worker
+        # needs no rights on the destination folder (on Windows, OCRmyPDF would otherwise
+        # try to create a temporary file beside the output there).
+        output = Path(request["output"]).open("w+b")  # noqa: SIM115 - closed after OCR
+    except OSError as exc:
+        print(f"cannot open the output: {exc}", file=sys.stderr)
+        return PERMISSION_ERROR
+    kwargs["output_file"] = output
+    confine(Path(request["source"]))
     import ocrmypdf
     from ocrmypdf.exceptions import ExitCodeException
 
     try:
-        return int(ocrmypdf.ocr(**kwargs))
+        with output:
+            return int(ocrmypdf.ocr(**kwargs))
     except ExitCodeException as exc:
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return int(exc.exit_code)
