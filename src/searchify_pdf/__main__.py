@@ -2,8 +2,8 @@
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
 """Process entry point for ``searchify-pdf``, ``python -m searchify_pdf`` and the frozen app.
 
-The engine-worker flag is handled first, before any UI import, so the packaged
-executable can run OCR child processes without relaunching the GUI.
+The engine-worker and PDF-service flags are handled first, before any UI import, so the
+packaged executable can run its child processes without relaunching the GUI.
 """
 
 from __future__ import annotations
@@ -22,6 +22,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from searchify_pdf.engines import worker
 
         return worker.main(args[1:])
+    if args[:1] == ["--searchify-pdf-service"]:  # pdf_service.SERVICE_FLAG, kept import-free
+        from searchify_pdf.engines import pdf_service
+
+        return pdf_service.main()
     if getattr(sys, "frozen", False):
         from searchify_pdf.platform.runtime import configure_bundled_runtime
 

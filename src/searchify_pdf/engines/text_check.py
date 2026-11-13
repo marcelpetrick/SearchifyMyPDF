@@ -5,7 +5,8 @@
 Up to three pages that already carry text are rendered (the invisible OCR layer is not
 drawn, visible text is), recognized with the configured languages, and compared with
 the page's existing text (:mod:`searchify_pdf.domain.text_quality`). The source is
-only read; renderings live in a private temporary folder that is always removed.
+only read, and rendered by the sandboxed PDF service; renderings live in a private
+temporary folder that is always removed.
 Any failure (no Tesseract, timeout, damaged page) yields ``unknown``, never a guess.
 
 The sampled pages are recognized in parallel, each Tesseract single-threaded: an
@@ -23,11 +24,9 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import pypdfium2
-
 from searchify_pdf.domain.text_quality import UNKNOWN, TextQuality, assess, sample_pages
 from searchify_pdf.engines.ocrmypdf_engine import recognition_order
-from searchify_pdf.engines.pdf_inspect import _PDFIUM_LOCK, PdfInfo
+from searchify_pdf.engines.pdf_inspect import PdfInfo, PdfInspectionError, render_pages
 
 RENDER_DPI = 200
 
@@ -35,20 +34,10 @@ RENDER_DPI = 200
 def _extract(source: Path, password: str, pages: Sequence[int], folder: Path) -> list[str]:
     """Existing text of ``pages``; each page is also rendered to ``folder/<index>.png``."""
     texts = []
-    with _PDFIUM_LOCK:
-        doc = pypdfium2.PdfDocument(str(source), password=password or None)
-        try:
-            for index in pages:
-                page = doc[index]
-                textpage = page.get_textpage()
-                texts.append(textpage.get_text_range())
-                textpage.close()
-                bitmap = page.render(scale=RENDER_DPI / 72, grayscale=True)
-                bitmap.to_pil().save(folder / f"{index}.png")
-                bitmap.close()
-                page.close()
-        finally:
-            doc.close()
+    rendered = render_pages(source, password, list(pages), RENDER_DPI)
+    for index, (text, png) in zip(pages, rendered, strict=True):
+        (folder / f"{index}.png").write_bytes(png)
+        texts.append(text)
     return texts
 
 
@@ -89,7 +78,7 @@ class TesseractTextChecker:
             images = [folder / f"{index}.png" for index in pages]
             with ThreadPoolExecutor(len(images), thread_name_prefix="text-check") as pool:
                 fresh = list(pool.map(lambda image: self._recognize(exe, image), images))
-        except (OSError, ValueError, subprocess.SubprocessError, pypdfium2.PdfiumError):
+        except (OSError, ValueError, subprocess.SubprocessError, PdfInspectionError):
             return UNKNOWN
         finally:
             shutil.rmtree(folder, ignore_errors=True)

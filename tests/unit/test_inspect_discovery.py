@@ -8,7 +8,7 @@ import pytest
 
 from searchify_pdf.application.discovery import discover
 from searchify_pdf.domain.jobs import Reason
-from searchify_pdf.engines import pdf_inspect
+from searchify_pdf.engines import pdf_inspect, pdf_ops
 from searchify_pdf.engines.pdf_inspect import (
     PdfInfo,
     PdfInspectionError,
@@ -120,10 +120,11 @@ def test_unreadable(tmp_path: Path) -> None:
 def test_pdfium_failure_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = synthetic.scanned_pdf(tmp_path / "s.pdf")
 
-    def boom(_: Path, _password: str = "") -> tuple[bool, ...]:
-        raise pdf_inspect.pypdfium2.PdfiumError("bad")
+    def boom(_: bytes, _password: str = "") -> list[bool]:
+        raise pdf_ops.pypdfium2.PdfiumError("bad")
 
-    monkeypatch.setattr(pdf_inspect, "page_text_flags", boom)
+    monkeypatch.setattr(pdf_inspect, "backend", pdf_inspect.InProcess)
+    monkeypatch.setattr(pdf_ops, "page_text_flags", boom)
     with pytest.raises(PdfInspectionError) as info:
         inspect_pdf(path)
     assert info.value.reason is Reason.INVALID_PDF

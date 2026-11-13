@@ -38,7 +38,8 @@ C4Container
     Person(user, "User")
     System_Boundary(sb, "Searchify PDF") {
         Container(exe, "Linux one-file executable", "PyInstaller, Python 3.12, PySide6", "GUI + CLI; bundles Tesseract, its libraries and eng/deu data")
-        Container(worker, "Engine worker process", "Same executable, --searchify-engine-worker", "One OCRmyPDF conversion per document")
+        Container(worker, "Engine worker process", "Same executable, --searchify-engine-worker", "One OCRmyPDF conversion per document; sandboxed (ADR 0016)")
+        Container(pdfsvc, "PDF service process", "Same executable, --searchify-pdf-service", "Parses every PDF for the app (inspect, validate, render, encrypt); sandboxed, no file access (ADR 0017)")
         Container(tess, "Tesseract", "Bundled native binary", "Text recognition per page")
         ContainerDb(settings, "searchify-pdf.settings.json", "Versioned JSON beside the app", "Portable settings")
         ContainerDb(stats, "searchify-pdf.statistics.json", "Versioned JSON beside the app", "Opt-in local statistics")
@@ -46,6 +47,7 @@ C4Container
     }
     Rel(user, exe, "Uses")
     Rel(exe, worker, "Spawns (own process group, cancellable)")
+    Rel(exe, pdfsvc, "Sends document bytes over a pipe")
     Rel(worker, tess, "Runs per page")
     Rel(exe, settings, "Reads / atomically writes")
     Rel(exe, stats, "Appends batches (when enabled)")
@@ -68,7 +70,7 @@ flowchart LR
         I18N["i18n — EN/DE catalogs"]
     end
     subgraph infra["Infrastructure"]
-        ENG["engines/ — OcrEngine protocol, OCRmyPDF adapter, worker, pdf_inspect, text_check"]
+        ENG["engines/ — OcrEngine protocol, OCRmyPDF adapter, worker, sandbox, pdf_inspect → pdf_service → pdf_ops, text_check"]
         PUB["storage/publisher — staging, validation, no-clobber publish"]
         SREPO["storage/settings_repository"]
         SLOC["storage/settings_location — portable / opted-in profile (ADR 0012)"]

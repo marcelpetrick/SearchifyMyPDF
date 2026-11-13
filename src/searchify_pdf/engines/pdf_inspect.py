@@ -1,40 +1,55 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Marcel Petrick <mail@marcelpetrick.it>
-"""Read-only PDF inspection: page text presence, protection, signatures, our marker.
+"""PDF inspection and the few PDF edits the application needs, without parsing here.
 
-Sources are only ever opened for reading. pdfium is not thread-safe, so every
-pypdfium2 call is serialized through a module-level lock.
+The application only reads and writes files; every PDF is parsed by the sandboxed PDF
+service (:mod:`searchify_pdf.engines.pdf_service`, ADR 0017), so a malicious document
+that exploits qpdf or PDFium never runs with the application's rights. Sources are only
+ever opened for reading.
 
 Protected PDFs (ADR 0011): a PDF that needs a password to open raises
 ``password_required`` (no password given) or ``wrong_password``. A PDF that opens
 without a password but is encrypted carries owner restrictions. Either way the result
 describes the protection so the copy can be encrypted the same way again
-(:func:`decrypt_copy`, :func:`encrypt_like`). Passwords are only held in memory.
+(:func:`decrypt_copy`, :func:`encrypt_like`). Passwords are only held in memory; they
+reach the service through its pipe, never through arguments or files.
 """
 
 from __future__ import annotations
 
-import contextlib
 import dataclasses
 import secrets
-import threading
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import pikepdf
-import pypdfium2
 
 from searchify_pdf.domain.jobs import Reason
+from searchify_pdf.engines import pdf_ops, pdf_service
 
-MARKER_KEY = "/SearchifyPDF"
-_PDFIUM_LOCK = threading.Lock()
-# qpdf's encryption code is not thread-safe in every build: on Windows, opening a
-# protected PDF while another worker thread encrypts or decrypts one fails with
-# "invalid password". These operations take milliseconds next to OCR, so all pikepdf
-# access in this process is serialized (OCR itself runs in a separate worker process).
-_PIKEPDF_LOCK = threading.Lock()
-MIN_TEXT_CHARS = 1
+MARKER_KEY = pdf_ops.MARKER_KEY
+
+
+class Backend(Protocol):
+    def call(
+        self, op: str, args: dict[str, Any], blobs: list[bytes]
+    ) -> tuple[dict[str, Any], list[bytes]]: ...
+
+
+class InProcess:
+    """Runs the operations in this process; for tests of the operations only."""
+
+    def call(
+        self, op: str, args: dict[str, Any], blobs: list[bytes]
+    ) -> tuple[dict[str, Any], list[bytes]]:
+        try:
+            return pdf_ops.dispatch(op, args, blobs)
+        except pdf_ops.OpError as exc:
+            raise pdf_service.ServiceError(exc.reason, exc.detail) from exc
+
+
+def backend() -> Backend:
+    return pdf_service.shared()
 
 
 class PdfInspectionError(Exception):
@@ -91,72 +106,52 @@ class PdfInfo:
         return self.page_count > 0 and all(self.pages_with_text)
 
 
-def _is_signed(pdf: pikepdf.Pdf) -> bool:
-    root = pdf.Root
-    if "/Perms" in root:
-        return True
-    acroform = root.get("/AcroForm")
-    if not isinstance(acroform, pikepdf.Dictionary):
-        return False
+def _read(path: Path) -> bytes:
     try:
-        sig_flags = int(acroform.get("/SigFlags", 0))
-    except (TypeError, ValueError):
-        sig_flags = 0
-    if sig_flags & 1:
-        return True
-    fields = acroform.get("/Fields")
-    if not isinstance(fields, pikepdf.Array):
-        return False
-    stack = list(fields)
-    seen = 0
-    while stack and seen < 10_000:
-        seen += 1
-        field = stack.pop()
-        if not isinstance(field, pikepdf.Dictionary):
-            continue
-        if field.get("/FT") == pikepdf.Name.Sig and "/V" in field:
-            return True
-        kids = field.get("/Kids")
-        if isinstance(kids, pikepdf.Array):
-            stack.extend(kids)
-    return False
+        return path.read_bytes()
+    except FileNotFoundError as exc:
+        raise PdfInspectionError(Reason.NOT_FOUND, str(exc)) from exc
+    except PermissionError as exc:
+        raise PdfInspectionError(Reason.UNREADABLE, str(exc)) from exc
+    except OSError as exc:
+        raise PdfInspectionError(Reason.INVALID_PDF, str(exc)) from exc
 
 
-def _password_error(password: str, exc: Exception) -> PdfInspectionError:
-    reason = Reason.WRONG_PASSWORD if password else Reason.PASSWORD_REQUIRED
-    return PdfInspectionError(reason, str(exc))
+def _call(op: str, path: Path, **args: Any) -> tuple[dict[str, Any], list[bytes]]:
+    data = _read(path)
+    try:
+        return backend().call(op, args, [data])
+    except pdf_service.ServiceError as exc:
+        raise PdfInspectionError(exc.reason, exc.detail) from exc
 
 
-@contextlib.contextmanager
-def _open_pdf(path: Path, **kwargs: Any) -> Iterator[pikepdf.Pdf]:
-    with _PIKEPDF_LOCK, pikepdf.open(path, **kwargs) as pdf:
-        yield pdf
+def _value(op: str, path: Path, **args: Any) -> Any:
+    return _call(op, path, **args)[0].get("value")
+
+
+def _document(op: str, path: Path, **args: Any) -> bytes:
+    _, blobs = _call(op, path, **args)
+    if len(blobs) != 1:
+        raise PdfInspectionError(Reason.VALIDATION_FAILED, f"{op}: no document returned")
+    return blobs[0]
 
 
 def has_marker(path: Path) -> bool:
     """True when the PDF carries the Searchify output marker (cheap metadata check)."""
     try:
-        with _open_pdf(path) as pdf:
-            return MARKER_KEY in pdf.docinfo
-    except (pikepdf.PdfError, OSError, ValueError):
+        return _value("has_marker", path) is True
+    except PdfInspectionError:
         return False
 
 
-def page_text_flags(path: Path, password: str = "") -> tuple[bool, ...]:
-    with _PDFIUM_LOCK:
-        doc = pypdfium2.PdfDocument(str(path), password=password or None)
-        try:
-            flags = []
-            for index in range(len(doc)):
-                page = doc[index]
-                textpage = page.get_textpage()
-                text = textpage.get_text_range()
-                flags.append(len(text.strip()) >= MIN_TEXT_CHARS)
-                textpage.close()
-                page.close()
-            return tuple(flags)
-        finally:
-            doc.close()
+def _protection(raw: Any, password: str) -> Protection | None:
+    if raw is None:
+        return None
+    try:
+        permissions = pikepdf.Permissions(**raw["permissions"])
+        return Protection(password, bool(raw["owner"]), permissions)
+    except (KeyError, TypeError) as exc:
+        raise PdfInspectionError(Reason.INVALID_PDF, f"bad protection: {exc}") from exc
 
 
 def inspect_pdf(path: Path, password: str = "") -> PdfInfo:
@@ -165,39 +160,33 @@ def inspect_pdf(path: Path, password: str = "") -> PdfInfo:
     ``password`` opens password-protected PDFs; without it they raise
     ``password_required``, with a wrong one ``wrong_password``.
     """
+    raw = _value("inspect", path, password=password)
     try:
-        with _open_pdf(path, password=password) as pdf:
-            protection = None
-            if pdf.is_encrypted:
-                protection = Protection(password, bool(pdf.owner_password_matched), pdf.allow)
-            signed = _is_signed(pdf)
-            marker = MARKER_KEY in pdf.docinfo
-            page_count = len(pdf.pages)
-    except pikepdf.PasswordError as exc:
-        raise _password_error(password, exc) from exc
-    except PermissionError as exc:
-        raise PdfInspectionError(Reason.UNREADABLE, str(exc)) from exc
-    except FileNotFoundError as exc:
-        raise PdfInspectionError(Reason.NOT_FOUND, str(exc)) from exc
-    except (pikepdf.PdfError, OSError, ValueError, RecursionError) as exc:
-        raise PdfInspectionError(Reason.INVALID_PDF, str(exc)) from exc
-    try:
-        flags = page_text_flags(path, password)
-    except (pypdfium2.PdfiumError, OSError) as exc:
-        raise PdfInspectionError(Reason.INVALID_PDF, str(exc)) from exc
-    return PdfInfo(page_count, flags, protection, signed=signed, generated_marker=marker)
+        flags = tuple(bool(flag) for flag in raw["pages_with_text"])
+        page_count = int(raw["page_count"])
+        protection = _protection(raw["protection"], password)
+        return PdfInfo(
+            page_count,
+            flags,
+            protection,
+            signed=bool(raw["signed"]),
+            generated_marker=bool(raw["marker"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PdfInspectionError(Reason.INVALID_PDF, f"bad inspection result: {exc}") from exc
 
 
 def count_pages(path: Path, password: str = "") -> int:
     """Page count used for output validation; raises on an unreadable PDF."""
-    with _open_pdf(path, password=password) as pdf:
-        return len(pdf.pages)
+    pages = _value("count_pages", path, password=password)
+    if not isinstance(pages, int) or isinstance(pages, bool):
+        raise PdfInspectionError(Reason.VALIDATION_FAILED, f"bad page count {pages!r}")
+    return pages
 
 
 def decrypt_copy(source: Path, password: str, target: Path) -> None:
     """Write an unencrypted copy of ``source`` to ``target`` (a private work file)."""
-    with _open_pdf(source, password=password) as pdf:
-        pdf.save(target)
+    target.write_bytes(_document("decrypt", source, password=password))
 
 
 def encrypt_like(plain: Path, target: Path, protection: Protection) -> None:
@@ -209,15 +198,26 @@ def encrypt_like(plain: Path, target: Path, protection: Protection) -> None:
     lifted from the copy either.
     """
     owner = protection.password if protection.owner else secrets.token_urlsafe(24)
-    encryption = pikepdf.Encryption(
-        owner=owner, user=protection.password, R=6, allow=protection.permissions
+    target.write_bytes(
+        _document(
+            "encrypt",
+            plain,
+            user=protection.password,
+            owner=owner,
+            permissions=protection.permissions._asdict(),
+        )
     )
-    with _open_pdf(plain) as pdf:
-        pdf.save(target, encryption=encryption)
 
 
 def add_marker(path: Path, version: str) -> None:
     """Stamp our generator marker into the document info of a staging file in place."""
-    with _open_pdf(path, allow_overwriting_input=True) as pdf:
-        pdf.docinfo[MARKER_KEY] = pikepdf.String(version)
-        pdf.save(path)
+    path.write_bytes(_document("add_marker", path, version=version))
+
+
+def render_pages(path: Path, password: str, pages: list[int], dpi: int) -> list[tuple[str, bytes]]:
+    """Existing text and a grayscale PNG of each of ``pages`` (for the text check)."""
+    result, images = _call("render", path, password=password, pages=pages, dpi=dpi)
+    texts = result.get("texts")
+    if not isinstance(texts, list) or len(texts) != len(pages) or len(images) != len(pages):
+        raise PdfInspectionError(Reason.INVALID_PDF, "render: incomplete result")
+    return [(str(text), image) for text, image in zip(texts, images, strict=True)]

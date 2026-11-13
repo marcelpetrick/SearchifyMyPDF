@@ -388,16 +388,17 @@ def test_cli_non_interactive_protected_pdf_reports_password_required(
 
 def test_pikepdf_access_is_serialized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """qpdf's crypto is not thread-safe on Windows: every open happens under one lock."""
-    from searchify_pdf.engines import pdf_inspect
+    from searchify_pdf.engines import pdf_inspect, pdf_ops
 
     opened: list[bool] = []
     real_open = pikepdf.open
 
     def checked_open(*args: object, **kwargs: object) -> pikepdf.Pdf:
-        opened.append(pdf_inspect._PIKEPDF_LOCK.locked())
+        opened.append(pdf_ops._PIKEPDF_LOCK.locked())
         return real_open(*args, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(pdf_inspect.pikepdf, "open", checked_open)
+    monkeypatch.setattr(pdf_inspect, "backend", pdf_inspect.InProcess)  # observe the opens
+    monkeypatch.setattr(pdf_ops.pikepdf, "open", checked_open)
     a = synthetic.encrypted_pdf(tmp_path / "a.pdf")
     r = synthetic.restricted_pdf(tmp_path / "r.pdf")
     opened.clear()  # only the application's opens count, not the fixtures'
@@ -406,4 +407,4 @@ def test_pikepdf_access_is_serialized(tmp_path: Path, monkeypatch: pytest.Monkey
     )
     assert outcomes == [Outcome.CONVERTED] * 2
     assert opened and all(opened)
-    assert not pdf_inspect._PIKEPDF_LOCK.locked()
+    assert not pdf_ops._PIKEPDF_LOCK.locked()

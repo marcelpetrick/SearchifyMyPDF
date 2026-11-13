@@ -53,8 +53,8 @@ it isn't shipped), its data folder is also writable.
 - A compromised parser can't modify, encrypt, delete or read the user's other files,
   and it can't send anything over the network. It can read the runtime folders and
   the one source document.
-- The main process still parses PDFs (pikepdf/PDFium for inspection, validation and
-  re-encryption) outside the sandbox. Moving those into the worker is a later step.
+- The main process no longer parses PDFs: inspection, validation, rendering and
+  re-encryption run in the sandboxed PDF service (ADR 0017, since 0.26.0).
 - Tests drive the logic against a fake libc and check the real kernel restrictions
   in a child process (`tests/unit/test_sandbox.py`); all OCR integration tests and the
   packaged end-to-end tests run with the sandbox on.

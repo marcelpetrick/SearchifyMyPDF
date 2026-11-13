@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pypdfium2
 
-from searchify_pdf.engines.pdf_inspect import _PDFIUM_LOCK
+from searchify_pdf.engines.pdf_ops import _PDFIUM_LOCK
 
 
 def page_texts(path: Path, password: str = "") -> list[str]:

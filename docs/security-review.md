@@ -22,8 +22,9 @@ Leptonica and Tesseract parse untrusted input with the user's privileges.
 | 14 | Docker | Container running as root on host files | Runs as uid 1000, no network needed (`--network none` in smoke test) | `scripts/docker_smoke.sh` |
 | 15 | Update check | Unwanted network traffic, spoofed answer, opening a hostile URL | Only on explicit request; one GET with a generic client name; TLS verified against the OS store; answer size-capped and schema-checked; pre-releases ignored; only this project's release URLs (https) are opened; nothing downloaded (ADR 0014) | `test_updates.py`, `test_open_url`, `test_check_for_updates`, native smoke step 6 |
 | 16 | Native parser exploit | A crafted PDF/image takes over qpdf, Leptonica or Tesseract in the worker and damages or sends away the user's files | On Linux the worker sandboxes itself before parsing (ADR 0016): Landlock allows writes only to its private temp folder and the output file and reads only of the runtime (system folders, Python, Tesseract, language data) and the source, no TCP; seccomp allows only `AF_UNIX` sockets and no io_uring; inherited by Tesseract. Windows/macOS not yet | `test_sandbox.py` (real kernel check in a child), all OCR integration tests run sandboxed |
+| 17 | Parser exploit in the application | A crafted PDF takes over qpdf or PDFium while the application inspects, validates, renders or re-encrypts it | The application parses no PDF itself: a long-lived PDF service gets the bytes over a pipe and runs sandboxed (ADR 0017; on Linux no writes, reads only of the runtime, no network). Answers are bounded, type-checked JSON + bytes; a crash or hang fails one document | `test_pdf_service.py` (hostile answers, crash, timeout, real sandboxed service) |
 
 Residual risks (tracked as issues): memory-safety bugs in native parsers. The Linux worker
-is sandboxed (row 16, ADR 0016); the main process and the Windows/macOS workers are not
-sandboxed yet (#13). No binary signing
+and the PDF service are sandboxed (rows 16–17, ADRs 0016–0017); on Windows and macOS
+they are not sandboxed yet (#13). No binary signing
 yet (#12).
