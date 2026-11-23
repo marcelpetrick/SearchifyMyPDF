@@ -42,7 +42,7 @@ dev = [
     "black==26.10.1",
     "build==1.6.1",
     "coverage==7.17.3",
-    "hypothesis==6.170.15",
+    "hypothesis==6.170.16",
     "mutmut==3.8.1",
     "mypy==2.4.1",
     "pillow==13.0.0",
