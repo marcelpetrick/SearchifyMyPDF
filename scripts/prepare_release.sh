@@ -96,7 +96,7 @@ COMMIT="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
     echo
     echo "## Known limitations"
     echo
-    echo "- Windows and macOS builds are previews: smoke-tested, not yet covered by the full test suite, unsigned."
+    echo "- Windows and macOS builds are unsigned previews. Native runners run unit, UI and OCR integration tests and smoke-test the built executables."
     echo "- Digitally signed PDFs are rejected (a copy would invalidate the signature); originals stay untouched."
     echo "- Pages mixing digital text with scanned regions keep their existing text unchanged in 'keep existing text' mode."
     echo "- Bundled OCR languages: English and German. Handwriting and poor scans are not guaranteed."

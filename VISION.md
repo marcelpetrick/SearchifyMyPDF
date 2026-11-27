@@ -253,7 +253,7 @@ Break implementation into issues and small PRs with acceptance criteria. Referen
 | Package smoke | Main and relevant PRs | Build artifact then execute that artifact; retain logs and test reports |
 | Mutation | Relevant PR scope plus scheduled/full pre-release run | Mutation reports, surviving-mutant review |
 | Dependencies/security | Scheduled and dependency changes | Lock updates, dependency scanning, component inventory/license changes |
-| Release | Reviewed version tag or manual dispatch for a verified commit | Required checks, native builds, packaged tests, checksums, SBOM/notices, draft release |
+| Release | Reviewed version tag or manual dispatch for a verified commit | Required checks, native builds, packaged tests, checksums, SBOM/notices, release download verification |
 
 Use explicit, supported runner OS/architecture labels rather than assuming `latest` stays on the same architecture. Select exact labels when implementation begins. GitHub currently offers native Linux/Windows/macOS hosts, including Intel and arm64 macOS; availability and billing depend on repository/account settings. Hosted Windows runners are not automatically proof of Windows 10 and Windows 11 x64 desktop support.
 
@@ -267,7 +267,7 @@ Pipeline security: minimal permissions, pinned action revisions with managed upd
 
 Use versioned prereleases for prototypes, e.g. `v0.1.0-alpha.1`. Build from a tagged, reviewed commit with locked dependencies. Each asset name identifies product, version, OS, and architecture. Include checksums, release notes, known limitations, component inventory/SBOM, and legally required notices/source offers or source materials where applicable.
 
-Default release workflow creates a draft; a maintainer reviews evidence and publishes. Public binary releases can be Linux-only initially. Do not list untested Windows/macOS binaries as supported just because they compiled. Promote artifacts already tested, rather than rebuilding an unrelated artifact at publication time. Signing/notarization changes must also be validated before promotion.
+Manual release runs create a draft by default for maintainer review. Reviewed version tags publish after the release checks pass, and the workflow downloads and verifies the public assets. Advertise platform support according to the available test evidence. Promote already-tested artifacts and validate signing and notarization changes before publication.
 
 The About and Licenses UI works offline and lists the application version plus bundled components' names, exact versions, authors/copyright holders, project URLs, license identifiers/texts, and required notices. Generate this inventory from actual build inputs and include native dependencies and trained data, not only Python packages.
 
@@ -380,7 +380,7 @@ This revision was checked against the conversation and reviewed for conflicting 
 - Added timing/median semantics, nested-concurrency limits, packaging tests, and truthful CI/release claims.
 - Marked unchosen defaults, technologies, thresholds, and legal/release decisions as open or proposed.
 
-No claim is made here that these requirements are already implemented or that any public release, remote pipeline run, external issue, license approval, or native desktop test has occurred.
+See [PLAN.md](PLAN.md) for implementation status, public releases, and recorded test evidence.
 
 ## 19. Technical reference starting points
 

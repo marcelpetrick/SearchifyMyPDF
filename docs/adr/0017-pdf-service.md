@@ -55,9 +55,10 @@ the pipe.
 
 ## Consequences
 
-- A parser exploit in inspection, validation, text check or re-encryption can't read
-  or change the user's files and can't use the network. A parser crash now fails one
-  document instead of closing the application.
+- The service receives documents over its pipe. With the sandbox active, Linux and
+  macOS restrict its file and network access as described in ADR 0016. Windows Low
+  integrity restricts its writes. A parser crash fails one document and the app can
+  start a new service for the next request.
 - The application holds each document in memory while it is sent, and the service
   holds its copy. That's fine for scanned documents, but very large PDFs use twice their
   size in RAM.

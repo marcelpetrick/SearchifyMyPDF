@@ -199,12 +199,13 @@ flowchart LR
         s11 --> s12[Docker image build + smoke]
         s12 -.optional.-> s13[mutation ≥95%]
     end
-    LP -->|push main| CI["Actions: Local Pipeline<br/>(py3.12 full, py3.13 no-package)"]
+    LP -->|push main| CI["Actions: Local Pipeline<br/>(Python 3.12 full, Python 3.13 without packaging or Docker)"]
     LP -->|push main / tag| DK["Actions: Docker → GHCR"]
     LP -->|push main| NAT["Actions: Native builds<br/>Windows + macOS executables, smoke-tested"]
     LP -->|tag v*| REL["Actions: Release → public release<br/>Linux (full pipeline) + Windows + macOS,<br/>SHA256SUMS, inventories → verify download"]
     NAT -.reused by.-> REL
     SCHED([weekly]) --> MUT["Actions: Mutation"]
+    AUDIT([daily or lockfile change]) --> DEP["Actions: Dependencies"]
 ```
 
 All workflows pin actions to commit SHAs, run with read-only permissions by default and

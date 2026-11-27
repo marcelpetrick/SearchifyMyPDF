@@ -7,6 +7,16 @@ the version (patch for ordinary changes, minor for major features).
 
 <!-- entries -->
 
+## 0.27.3 — 2026-11-27
+
+- Update OCRmyPDF to 17.14.2 and pikepdf to 10.18.3.
+- Update coverage to 7.17.5, Hypothesis to 6.170.22, Ruff to 0.17.6, and types-psutil to 7.2.2.20261122.
+- Refresh nine transitive dependency pins in the lockfile, including lxml, fonttools and Pydantic.
+- Use uv 0.13.10 in CI and both Docker builds, and pin setup-uv to v10.4.0.
+- Bundle Tesseract 5.5.5 in the Linux executable.
+- Make the interrupted-OCR recovery test stop workers in separate process groups.
+- Refresh the README badges and document the current release and sandbox behavior.
+
 ## 0.27.2 — 2026-11-13
 
 - fix(security): the packaged app no longer grants reads to the folder it was saved in, and a hung PDF service is always reported as a timeout (#13)

@@ -46,8 +46,8 @@ are gone; Searchify never uses them (file names are UTF-8, text is handled by Py
 Measured against full ground truth, not keywords: word accuracy = share of ground-truth
 words recognised in order, character similarity = difflib ratio (both case-insensitive,
 punctuation ignored). Gated by `tests/integration/test_ocr_quality.py` (development
-setup), `test_recognition_quality_of_the_packaged_engine` (shipped Linux executable,
-Tesseract 5.5.3) and `test_image_recognition_quality` (Docker image). Default settings
+setup), `test_recognition_quality_of_the_packaged_engine` (shipped Linux executable)
+and `test_image_recognition_quality` (Docker image). Default settings
 (English + German, tessdata_fast 4.1.0).
 
 | Document | Before 0.18.1 (`eng` first) | Since 0.18.1 (`deu` first) | Gate |

@@ -37,7 +37,8 @@ Status legend: ✅ done · 🟡 partial / limited evidence · ⏳ deferred (trac
 12. CLI (non-interactive Ask handling, exit codes).
 13. Qt UI: convert view, settings, save/close, progress, cancel, about/licenses.
 14. Packaging: PyInstaller binary with bundled Tesseract; packaged E2E in a clean container.
-15. Release workflow: tested artifact, checksums, inventory, draft prerelease.
+15. Release workflow: publish tested artifacts with checksums and component inventories,
+    then download and verify them. Manual runs can rehearse the process with a draft.
 
 ### M2 — Linux hardening
 16. i18n English/German, light/dark themes, accessibility basics.
@@ -45,6 +46,9 @@ Status legend: ✅ done · 🟡 partial / limited evidence · ⏳ deferred (trac
 18. Fault/adversarial tests, red-team review notes (`docs/security-review.md`).
 19. Mutation testing baseline (`docs/mutation-baseline.md`) + scheduled workflow.
 20. Docker image (CLI) published to GHCR.
+    Verified on 2026-11-27 with the public `0.27.2` tag. A pull with an empty Docker
+    configuration succeeded, and an offline Compose service produced searchable text
+    from a synthetic scan. The source checksum matched after conversion.
 
 ### M2b — Test depth and a smaller executable (requested 2026-11-10)
 Goal: prove more behaviour **on the shipped artifacts**, then shrink the Linux executable
@@ -159,11 +163,11 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | A12 | ✅ | worker-limit test (max concurrency), cancellation kills process tree, timeout test, benchmark |
 | A13 | ✅ | off by default, true medians, no double counting, failure handling (`test_statistics.py`) |
 | A14 | ✅ | locks, simultaneous instances, no-clobber, disk full, permission, alias, hard-kill recovery |
-| A15 | ✅ | 99.8 % statement / 99.4 % branch (minimum 95 % each, enforced separately) |
+| A15 | ✅ | 95 % minimum for statement and branch coverage, enforced separately by the pipeline |
 | A16 | ✅ | mutation 100 % of non-equivalent (min 95 %), real-OCR integration, packaged E2E |
-| A17 | ✅ | `docs/desktop-matrix.md` advertises Linux x86-64 only |
+| A17 | ✅ | `docs/desktop-matrix.md` records Linux x86-64 support and Windows x86-64 / macOS arm64 preview evidence |
 | A18 | ✅ | release workflow publishes a public release with the tested Linux executable plus smoke-tested Windows/macOS previews, SHA256SUMS and inventories, then downloads and verifies the published assets (owner asked for public releases on 2026-11-10) |
-| A19 | ⏳ | procedure in `docs/windows-search.md`; Windows build is M3 (#10) |
+| A19 | ⏳ | Windows preview is available; the manual indexing check in `docs/windows-search.md` is pending under M3 (#10) |
 | A20 | ✅ | `docs/security-review.md` with regression tests; residual risk #13 |
 
 ## Progress log (one row per commit, appended by `scripts/commit.sh`)
@@ -246,3 +250,4 @@ M2b ✅ (steps 21–31) · M3 🟡 Windows preview #10 · M4 🟡 macOS preview 
 | 0.27.0 | 2026-11-13 | feat(security): sandbox the OCR worker and the PDF service on macOS (Seatbelt) and Windows (Low integrity); the worker writes its output through a handle opened before the sandbox (#13) |
 | 0.27.1 | 2026-11-13 | build(deps): pikepdf 10.18.1, coverage 7.17.3, ruff 0.17.5, types-psutil 7.2.2.20261111, uv 0.13.8 |
 | 0.27.2 | 2026-11-13 | fix(security): the packaged app no longer grants reads to the folder it was saved in, and a hung PDF service is always reported as a timeout (#13) |
+| 0.27.3 | 2026-11-27 | build(deps): refresh Python pins, the lockfile, uv and the bundled Linux Tesseract; correct release and security documentation |

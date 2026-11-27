@@ -73,9 +73,10 @@ The same `sandbox.apply` call has a layer for each platform:
 
 ## Consequences
 
-- A compromised parser can't modify, encrypt, delete or read the user's other files,
-  and it can't send anything over the network. It can read the runtime folders and
-  the one source document.
+- With the sandbox active, the Linux worker restricts reads to its source and runtime
+  paths plus allowed writable paths. macOS restricts reads in the user-data locations
+  covered by its profile. Both platforms restrict writes and network access. Windows
+  Low integrity restricts writes.
 - The main process no longer parses PDFs: inspection, validation, rendering and
   re-encryption run in the sandboxed PDF service (ADR 0017, since 0.26.0).
 - Tests drive the logic against a fake libc and check the real kernel restrictions

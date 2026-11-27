@@ -1,14 +1,16 @@
 # Searchify PDF
 
 [![Local Pipeline](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml)
+[![Native builds](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/native.yml)
 [![Docker](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/docker.yml)
+[![Dependencies](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/dependencies.yml)
 [![Release](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/release.yml)
-[![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/SearchifyMyPDF?sort=semver&include_prereleases)](https://github.com/marcelpetrick/SearchifyMyPDF/releases)
+[![Latest Release](https://img.shields.io/github/v/release/marcelpetrick/SearchifyMyPDF?sort=semver)](https://github.com/marcelpetrick/SearchifyMyPDF/releases/latest)
 [![License: GPL v3 or later](https://img.shields.io/badge/license-GPLv3%20or%20later-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776ab.svg)](https://www.python.org/)
 [![PySide6 6.12.0](https://img.shields.io/badge/PySide6-6.12.0-41cd52.svg)](https://doc.qt.io/qtforpython-6/)
-[![OCRmyPDF 17.14.1](https://img.shields.io/badge/OCRmyPDF-17.14.1-orange.svg)](https://ocrmypdf.readthedocs.io/)
-[![Coverage: 99.8% statements / 99.4% branches](https://img.shields.io/badge/coverage-99.8%25%20stmt%20%7C%2099.4%25%20branch-brightgreen.svg)](scripts/check_coverage.py)
+[![OCRmyPDF 17.14.2](https://img.shields.io/badge/OCRmyPDF-17.14.2-orange.svg)](https://ocrmypdf.readthedocs.io/)
+[![Coverage gate: 95% minimum for statements and branches](https://img.shields.io/badge/coverage%20gate-95%25%20statements%20%7C%2095%25%20branches-brightgreen.svg)](scripts/check_coverage.py)
 [![Mutation score ≥95%](https://img.shields.io/badge/mutation-100%25%20(min%2095%25)-brightgreen.svg)](docs/mutation-baseline.md)
 
 **Make scanned PDFs searchable.** Drop a PDF or a whole folder onto Searchify PDF and it
@@ -54,12 +56,11 @@ modified, and no Python or OCR installation is needed.
   Signed PDFs are rejected. See [`docs/adr/0011-protected-pdfs.md`](docs/adr/0011-protected-pdfs.md).
 - **Safe publishing:** staged in the target folder, validated, then atomically published;
   failures, cancellation, full disks or crashes never damage the previous copy.
-- **Sandboxed parsing:** the app never parses a PDF itself. The OCR process can write
-  only to its own temporary folder and the new copy, and a separate PDF service checks
-  and re-encrypts documents without any file access. On Linux and macOS neither can
-  read your other files or use the network (Landlock + seccomp, Seatbelt); on Windows
-  they run at Low integrity, which blocks writes
-  ([ADR 0016](docs/adr/0016-worker-sandbox.md), [ADR 0017](docs/adr/0017-pdf-service.md)).
+- **Sandboxed parsing:** a separate PDF service receives document bytes from the app
+  for inspection, validation and re-encryption. The OCR worker writes the copy through
+  a pre-opened file handle. Both processes restrict file and network access on Linux
+  and macOS where the sandbox is available. On Windows, Low integrity restricts writes.
+  See [ADR 0016](docs/adr/0016-worker-sandbox.md) and [ADR 0017](docs/adr/0017-pdf-service.md).
 - **Parallel but bounded:** Automatic, one-after-another, or a fixed number of documents;
   one shared CPU budget; cancel kills OCR processes cleanly.
 - **Portable settings** in `searchify-pdf.settings.json` next to the app; Save / Discard /
@@ -80,24 +81,27 @@ modified, and no Python or OCR installation is needed.
 
 Every [release](https://github.com/marcelpetrick/SearchifyMyPDF/releases) has executables
 for 🐧 Linux x86-64, 🪟 Windows x86-64 and 🍎 macOS Apple silicon, plus `SHA256SUMS`.
-Linux is the fully tested platform; Windows and macOS builds are **previews**: they are
-smoke-tested on their own runners (version, licenses, GUI drop, OCR with the bundled
-Tesseract) but not yet covered by the full test suite, and not code-signed.
+Linux runs the full packaged end-to-end suite. Windows and macOS builds are
+**previews**. Their native runners run unit, UI and OCR integration tests and
+smoke-test the executable (version, licenses, GUI drop, OCR with bundled Tesseract).
+Both preview builds are unsigned.
 
 ### Linux
 
-1. Download `searchify-pdf-<version>-linux-x86_64` from the
-   [releases](https://github.com/marcelpetrick/SearchifyMyPDF/releases) (or the
-   `searchify-pdf-linux-x86_64` artifact of the latest
-   [Local Pipeline run](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml))
-   and verify it: `sha256sum -c SHA256SUMS`.
+1. Download the Linux executable and `SHA256SUMS` from the same
+   [release](https://github.com/marcelpetrick/SearchifyMyPDF/releases).
+   Verify the executable with `sha256sum -c SHA256SUMS --ignore-missing`.
+   If you use the `searchify-pdf-linux-x86_64` artifact from a
+   [Local Pipeline run](https://github.com/marcelpetrick/SearchifyMyPDF/actions/workflows/ci.yml),
+   extract the archive and verify the executable with its included
+   `.sha256` file using `sha256sum -c searchify-pdf-*-linux-x86_64.sha256`.
 2. Put it into a folder you can write to (settings are stored beside it), then:
 
 ```bash
 chmod +x searchify-pdf-*-linux-x86_64
 ./searchify-pdf-*-linux-x86_64                          # open the window
 ./searchify-pdf-*-linux-x86_64 --install-desktop-entry  # app-menu launcher: drop PDFs/folders on it
-./searchify-pdf-*-linux-x86_64 ~/Scans                  # drop launch: open window and start
+./searchify-pdf-*-linux-x86_64 ~/Scans                  # process using the saved drop settings
 ```
 
 Requirements: x86-64 Linux with glibc ≥ 2.35 (Ubuntu 22.04+, Debian 12+, Fedora 36+, Arch/Manjaro)
@@ -133,8 +137,21 @@ docker run --rm -v "$PWD:/data" -v "$PWD/.searchify:/config" \
     ghcr.io/marcelpetrick/searchifymypdf:latest --on-existing-output overwrite /data
 ```
 
-The image runs as an unprivileged user, needs no network, and reads optional settings
-from `/config/searchify-pdf.settings.json`.
+The image runs as an unprivileged user, needs no network during OCR, and reads optional
+settings from `/config/searchify-pdf.settings.json`. A Compose service can use a
+numeric release tag and run with networking disabled.
+
+```yaml
+services:
+  searchify:
+    image: ghcr.io/marcelpetrick/searchifymypdf:0.27.3
+    network_mode: none
+    volumes:
+      - ./scans:/data
+```
+
+Run `docker compose run --rm searchify /data` from the directory with the Compose
+file. The container user needs write access to `./scans` to save adjacent copies.
 
 ### Making copies findable
 
@@ -163,7 +180,7 @@ scripts/commit.sh patch "fix(scope): message"   # bump version → gate → comm
 | tests | pytest: unit + property tests, integration with **real OCR** (synthetic documents and a real-life corpus of public-domain / CC BY-SA scans 1929–1967, English and German — see `tests/fixtures/real/SOURCES.md`), a **recognition quality gate** against full ground truth (synthetic EN/DE incl. umlauts, real 1950 print; see [`docs/benchmarks.md`](docs/benchmarks.md#recognition-quality-plan-step-31)), UI tests offscreen (pytest-qt), fault/adversarial tests |
 | coverage | statement **and** branch coverage checked separately, minimum 95 % (target 98 %) |
 | wheel | sdist + wheel |
-| binary / size | PyInstaller one-file executable built in Ubuntu 22.04 with Tesseract built from source; size budget 95 MB (currently ≈ 91 MB, see [`docs/benchmarks.md`](docs/benchmarks.md)) |
+| binary / size | PyInstaller one-file executable built in Ubuntu 22.04 with Tesseract built from source; size budget 95 MB. Measurements are in [`docs/benchmarks.md`](docs/benchmarks.md). |
 | e2e | packaged executable in clean, **offline** containers without Python/Tesseract: CLI, real-life corpus, portable settings, read-only app folder, `docker stop` cancel, terminal prompts, GUI drop launch, desktop launcher on a real X server |
 | docker | builds the CLI image and runs its E2E tests offline (real-life corpus, `/config`, `docker stop`, non-root) |
 | mutation (opt-in, weekly in CI) | mutmut on the core, minimum 95 % — see [`docs/mutation-baseline.md`](docs/mutation-baseline.md) |
@@ -185,8 +202,8 @@ full Linux pipeline + native builds → public GitHub release with all three pla
 
 ## Known limitations
 
-- Windows and macOS builds are previews: smoke-tested only, unsigned, no Explorer/Finder
-  drop integration yet (milestones M3 #10 and M4 #11).
+- Windows and macOS preview builds are unsigned. Explorer and Finder drop integration
+  is still pending (milestones M3 #10 and M4 #11).
 - Digitally signed PDFs are rejected (reported, untouched); a copy would invalidate the signature.
 - Desktop search tools may not index the text of password-protected copies.
 - Pages that mix digital text with scanned regions keep their text unchanged in the default

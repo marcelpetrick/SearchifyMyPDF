@@ -13,4 +13,4 @@ This is a release checklist, not legal advice (VISION §13).
 | AGPL Ghostscript | Not bundled (no PDF/A output) |
 | Complete corresponding source | Tagged commit + `searchify_pdf-<version>-source.tar.gz` release asset; build scripts and Dockerfiles are part of the source |
 | Name/trademark "Searchify PDF" | **Open** — working title, not yet checked (owner decision) |
-| Code signing / publisher identity | **Open** — not required for Linux prerelease; required decision before Windows/macOS |
+| Code signing / publisher identity | **Open** — Windows and macOS preview executables ship unsigned. Signing and notarization remain open for full platform support. |

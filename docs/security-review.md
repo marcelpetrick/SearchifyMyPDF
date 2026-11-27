@@ -1,8 +1,8 @@
 # Red-team review of the first working prototype (VISION §11, A20)
 
-Date: 2026-11-10 · Scope: version 0.16.x, Linux executable, CLI and Docker image.
-A packaged local PDF parser is **not** a security sandbox: OCRmyPDF, pikepdf/QPDF, PDFium,
-Leptonica and Tesseract parse untrusted input with the user's privileges.
+The initial review covered version 0.16.x on 2026-11-10. At that point, the packaged
+Linux executable, CLI and Docker image ran native PDF and image parsers with the
+process's ordinary privileges. Rows 16–17 describe the sandboxing added since then.
 
 | # | Area | Finding / threat | Mitigation | Evidence |
 | --- | --- | --- | --- | --- |
@@ -18,11 +18,11 @@ Leptonica and Tesseract parse untrusted input with the user's privileges.
 | 10 | Privacy | Statistics leaking paths/content | Statistics opt-in, contain no paths or text | `test_json_roundtrip_has_no_paths_or_text` |
 | 11 | Library path | Bundled `LD_LIBRARY_PATH` leaking into `xdg-open` | `external_env` restores the original path | `test_external_env_restores_library_path` |
 | 12 | Supply chain | Tampered language data / actions / dependencies | SHA-256 pinned tessdata, `uv.lock` with hashes (`--require-hashes` in Docker), actions pinned to SHAs, Dependabot | `scripts/fetch_tessdata.sh`, workflows |
-| 13 | Release tampering | Rebuilt or swapped binaries | Release promotes the exact tested artifact, verifies `SHA256SUMS`, draft for human review; Docker image with provenance + SBOM | `.github/workflows/release.yml`, `docker.yml` |
+| 13 | Release tampering | Rebuilt or swapped binaries | Release promotes the tested artifacts and verifies `SHA256SUMS` again after download. Manual runs create a draft by default. Docker images include provenance and an SBOM. | `.github/workflows/release.yml`, `docker.yml` |
 | 14 | Docker | Container running as root on host files | Runs as uid 1000, no network needed (`--network none` in smoke test) | `scripts/docker_smoke.sh` |
 | 15 | Update check | Unwanted network traffic, spoofed answer, opening a hostile URL | Only on explicit request; one GET with a generic client name; TLS verified against the OS store; answer size-capped and schema-checked; pre-releases ignored; only this project's release URLs (https) are opened; nothing downloaded (ADR 0014) | `test_updates.py`, `test_open_url`, `test_check_for_updates`, native smoke step 6 |
-| 16 | Native parser exploit | A crafted PDF/image takes over qpdf, Leptonica or Tesseract in the worker and damages or sends away the user's files | On Linux the worker sandboxes itself before parsing (ADR 0016): Landlock allows writes only to its private temp folder (the output goes through a handle opened before) and reads only of the runtime (system folders, Python, Tesseract, language data) and the source, no TCP; seccomp allows only `AF_UNIX` sockets and no io_uring; inherited by Tesseract. macOS: a Seatbelt profile with the same write, read and network limits; Windows: Low integrity (writes only to its temp folder; reading and network are not limited). The output is written through a handle opened before the sandbox | `test_sandbox.py` (real kernel check in a child on Linux, macOS and Windows), all OCR integration tests run sandboxed on all three |
-| 17 | Parser exploit in the application | A crafted PDF takes over qpdf or PDFium while the application inspects, validates, renders or re-encrypts it | The application parses no PDF itself: a long-lived PDF service gets the bytes over a pipe and runs sandboxed (ADR 0017; no writes, on Linux and macOS also reads only of the runtime and no network). Answers are bounded, type-checked JSON + bytes; a crash or hang fails one document | `test_pdf_service.py` (hostile answers, crash, timeout, real sandboxed service) |
+| 16 | Native parser exploit | A crafted PDF/image takes over qpdf, Leptonica or Tesseract in the worker and damages or sends away the user's files | The worker applies the platform restrictions in ADR 0016 before parsing. Linux uses Landlock and seccomp. macOS uses Seatbelt with read restrictions in covered user-data locations. Windows uses Low integrity to restrict writes. The worker opens the output handle before applying sandbox restrictions. | `test_sandbox.py` checks the kernel restrictions in a child process. Native runners and Linux CI run the OCR integration tests. |
+| 17 | Parser exploit in the application | A crafted PDF takes over qpdf or PDFium while the application inspects, validates, renders or re-encrypts it | A long-lived PDF service receives document bytes over a pipe and applies the platform restrictions in ADR 0017. The client bounds and type-checks replies. A crash or timeout fails one document. | `test_pdf_service.py` (invalid answers, crash, timeout, real sandboxed service) |
 
 Residual risks (tracked as issues): memory-safety bugs in native parsers. The OCR worker
 and the PDF service are sandboxed on every platform (rows 16–17, ADRs 0016–0017). On
